@@ -29,7 +29,7 @@ export const LoginPage = () => {
     setTimeout(() => {
       if (form.email === "test@mail.com" && form.password === "123456") {
         localStorage.setItem("accessToken", "mock-token");
-        navigate("/dashboard");
+        navigate("/accounts");
       } else {
         setError("Неверный email или пароль");
         setLoading(false);
