@@ -9,7 +9,6 @@ public class AppDbContext : DbContext
     {
     }
 
-    public DbSet<User> Users { get; set; }
     public DbSet<Account> Accounts { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<CreditTariff> CreditTariffs { get; set; }
@@ -18,9 +17,6 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-
-        modelBuilder.Entity<User>().HasKey(u => u.Id);
-        modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
 
         modelBuilder.Entity<Account>().HasKey(a => a.Id);
         modelBuilder.Entity<Account>().HasIndex(a => a.AccountNumber).IsUnique();
