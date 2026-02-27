@@ -4,6 +4,7 @@ using System.Text;
 using AuthService.Abstractions;
 using AuthService.Data;
 using AuthService.DTOs.Requests;
+using AuthService.DTOs.Responses;
 using AuthService.Entities;
 using AuthService.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -35,25 +36,10 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("User is not active");
         }
 
-        var tokenHandler = new JwtSecurityTokenHandler();
-        string jwtKey = _configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null");
-        byte[] key = Encoding.ASCII.GetBytes(jwtKey);
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
-            }),
-            Expires = DateTime.UtcNow.AddHours(2),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        };
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+        return GenerateAccessToken(user);
     }
 
-    public async Task RegisterClientAsync(RegisterClientRequest request)
+    public async Task<RegisterResponse> RegisterClientAsync(RegisterClientRequest request)
     {
         bool existingUser = await _context.Users.AnyAsync(u => u.Email == request.Email);
         if (existingUser)
@@ -76,5 +62,32 @@ public class AuthService : IAuthService
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        return new RegisterResponse
+        {
+            UserId = user.Id,
+            AccessToken = GenerateAccessToken(user),
+            RefreshToken = Guid.NewGuid().ToString("N")
+        };
+    }
+
+    private string GenerateAccessToken(User user)
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
+        string jwtKey = _configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null");
+        byte[] key = Encoding.ASCII.GetBytes(jwtKey);
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.Role.ToString())
+            }),
+            Expires = DateTime.UtcNow.AddHours(2),
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        };
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        return tokenHandler.WriteToken(token);
     }
 }

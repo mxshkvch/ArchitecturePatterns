@@ -37,8 +37,8 @@ public class AuthController : ControllerBase
     {
         try
         {
-            await _authService.RegisterClientAsync(request);
-            return StatusCode(201);
+            var response = await _authService.RegisterClientAsync(request);
+            return StatusCode(201, response);
         }
         catch (InvalidOperationException ex)
         {
