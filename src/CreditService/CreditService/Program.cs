@@ -1,15 +1,16 @@
+using CreditService.Data;
+using CreditService.Data.Responses;
+using CreditService.Domain.Abstractions;
+using CreditService.Services;
+using CreditService.Services.Abstractions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
-using CreditService.Data;
-using CreditService.Data.Responses;
-using Microsoft.OpenApi;
-using UserService.Data;
-using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +30,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "¬‚Â‰ËÚÂ ÚÓÎ¸ÍÓ JWT ÚÓÍÂÌ (·ÂÁ ÔÂÙËÍÒ‡ Bearer)"
+        Description = "–í–≤–µ–¥–∏—Ç–µ —Ç–æ–ª—å–∫–æ JWT —Ç–æ–∫–µ–Ω (–±–µ–∑ –ø—Ä–µ—Ñ–∏–∫—Å–∞ Bearer)"
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -51,13 +52,21 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<CreditDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-//builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<ICreditService, CreditService.Services.CreditService>();
+
+var userServiceUrl = builder.Configuration["Services:UserServiceUrl"]
+    ?? throw new ArgumentException("Services:UserServiceUrl cannot be null");
+
+builder.Services.AddHttpClient<IUserServiceClient, UserServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(userServiceUrl);
+});
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? builder.Configuration["Jwt:SigningKey"]
-    ?? "JTD1EH4cfUatNJhTcqhiCdimMTMtK46W3XNEEORDfJl";
+    ?? throw new ArgumentException("Jwt key is missing");
 
 var signingKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtKey));
 
@@ -76,70 +85,48 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                var authorization = context.Request.Headers.Authorization.ToString();
-                if (string.IsNullOrWhiteSpace(authorization))
-                {
-                    return Task.CompletedTask;
-                }
-
-                const string bearerPrefix = "Bearer ";
-                var token = authorization.Trim();
-
-                if (token.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    token = token[bearerPrefix.Length..].Trim();
-                }
-
-                context.Token = token;
-                return Task.CompletedTask;
-            }
-        };
     });
 
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.Use(async (context, next) =>
+app.UseExceptionHandler(errorApp =>
 {
-    try
+    errorApp.Run(async context =>
     {
-        await next();
-    }
-    catch (Exception exception)
-    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        if (exception is null)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            return;
+        }
+
         var (statusCode, title) = exception switch
         {
-            ArgumentException => ((int)HttpStatusCode.BadRequest, "ÕÂÍÓÂÍÚÌ˚Â ‰‡ÌÌ˚Â Á‡ÔÓÒ‡\nexception.Message"),
-            InvalidOperationException => ((int)HttpStatusCode.Conflict, " ÓÌÙÎËÍÚ ‰‡ÌÌ˚ı\nexception.Message"),
-            ForbiddenException => ((int)HttpStatusCode.Forbidden, "ƒÓÒÚÛÔ Á‡ÔÂ˘ÂÌ\n{exception.Message}"),
-            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "–ÂÒÛÒ ÌÂ Ì‡È‰ÂÌ\nexception.Message"),
-            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "ƒÓÒÚÛÔ Á‡ÔÂ˘∏Ì\nexception.Message"),
-            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Œ¯Ë·Í‡ ‚ÌÂ¯ÌÂ„Ó ÒÂ‚ËÒ‡\nexception.Message"),
-            HttpRequestException => ((int)HttpStatusCode.BadGateway, "¬ÌÂ¯ÌËÈ ÒÂ‚ËÒ ÌÂ‰ÓÒÚÛÔÂÌ\nexception.Message"),
-            _ => ((int)HttpStatusCode.BadRequest, "Œ¯Ë·Í‡ Ó·‡·ÓÚÍË Á‡ÔÓÒ‡\nexception.Message")
+            ArgumentException => ((int)HttpStatusCode.BadRequest, "–ù–µ–∫–æ—Ä—Ä–µ–∫—Ç–Ω—ã–µ –¥–∞–Ω–Ω—ã–µ –∑–∞–ø—Ä–æ—Å–∞"),
+            InvalidOperationException => ((int)HttpStatusCode.Conflict, "–ö–æ–Ω—Ñ–ª–∏–∫—Ç –¥–∞–Ω–Ω—ã—Ö"),
+            ForbiddenException => ((int)HttpStatusCode.Forbidden, "–î–æ—Å—Ç—É–ø –∑–∞–ø—Ä–µ—â–µ–Ω"),
+            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "–†–µ—Å—É—Ä—Å –Ω–µ –Ω–∞–π–¥–µ–Ω"),
+            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "–î–æ—Å—Ç—É–ø –∑–∞–ø—Ä–µ—â—ë–Ω"),
+            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "–û—à–∏–±–∫–∞ –≤–Ω–µ—à–Ω–µ–≥–æ —Å–µ—Ä–≤–∏—Å–∞"),
+            HttpRequestException => ((int)HttpStatusCode.BadGateway, "–í–Ω–µ—à–Ω–∏–π —Å–µ—Ä–≤–∏—Å –Ω–µ–¥–æ—Å—Ç—É–ø–µ–Ω"),
+            _ => ((int)HttpStatusCode.InternalServerError, "–í–Ω—É—Ç—Ä–µ–Ω–Ω—è—è –æ—à–∏–±–∫–∞ —Å–µ—Ä–≤–µ—Ä–∞")
         };
 
-        if (!context.Response.HasStarted)
-        {
-            context.Response.Clear();
-            context.Response.StatusCode = statusCode;
-            context.Response.ContentType = "application/problem+json";
+        context.Response.Clear();
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/problem+json";
 
-            await context.Response.WriteAsJsonAsync(new
-            {
-                title,
-                status = statusCode,
-                detail = exception.Message,
-                traceId = context.TraceIdentifier
-            });
-        }
-    }
+        await context.Response.WriteAsJsonAsync(new
+        {
+            title,
+            status = statusCode,
+            detail = exception.Message,
+            traceId = context.TraceIdentifier
+        });
+    });
 });
 
 app.UseSwagger();

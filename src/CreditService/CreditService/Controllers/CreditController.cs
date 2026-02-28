@@ -2,12 +2,14 @@ using CreditService.Data.Responses;
 using CreditService.Domain;
 using CreditService.Domain.Abstractions;
 using CreditService.Domain.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CreditService.Controllers
 {
     [ApiController]
     [Route("")]
+    [Authorize]
     public class CreditController : ControllerBase
     {
         private readonly ICreditService _creditService;
@@ -18,6 +20,7 @@ namespace CreditService.Controllers
         }
 
         [HttpGet("credits/tariffs")]
+        [AllowAnonymous]
         public async Task<ActionResult<CreditTariffResponse>> GetAvailableTariffs([FromQuery] int page = 1, [FromQuery] int size = 10)
         {
             var response = await _creditService.GetAvailableTarrifs(page, size);

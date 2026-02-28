@@ -1,13 +1,12 @@
-﻿using CreditService.Data.Responses;
+﻿using CreditService.Data;
+using CreditService.Data.Responses;
 using CreditService.Domain;
 using CreditService.Domain.Abstractions;
 using CreditService.Domain.Enum;
 using CreditService.Domain.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
+using CreditService.Services.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using UserService.Data;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace CreditService.Services
 {
@@ -15,11 +14,16 @@ namespace CreditService.Services
     {
         private readonly CreditDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IUserServiceClient _userServiceClient;
 
-        public CreditService(CreditDbContext context, IHttpContextAccessor httpContextAccessor)
+        public CreditService(
+            CreditDbContext context,
+            IHttpContextAccessor httpContextAccessor,
+            IUserServiceClient userServiceClient)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _httpContextAccessor = httpContextAccessor;
+            _userServiceClient = userServiceClient;
         }
 
         public async Task<CreditTariffResponse> GetAvailableTarrifs(int page, int size)
@@ -35,13 +39,13 @@ namespace CreditService.Services
 
         public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)
         {
-            Guid userId = GetCurrentUserId(_httpContextAccessor);
-
             if (request == null)
                 throw new ArgumentException("Request is null");
 
             if (request.amount <= 0)
                 throw new ArgumentException("Amount must be greater than zero");
+
+            var currentUser = await GetCurrentUserAsync();
 
             var tariff = await _context.Tariffs
                 .FirstOrDefaultAsync(t => t.Id == request.tariffId);
@@ -55,15 +59,14 @@ namespace CreditService.Services
             var credit = new Credit
             {
                 Id = Guid.NewGuid(),
-                userId = userId,
-                //accountId = ПОСЛЕ ПОДКЛЮЧЕНИЯ CORE
+                userId = currentUser.Id,
                 tarrifId = tariff.Id,
                 principal = request.amount,
                 remainingAmount = request.amount,
                 interestRate = tariff.interestRate,
                 status = StatusCredit.ACTIVE,
-                startDate=  DateTime.UtcNow,
-                endDate= DateTime.UtcNow.AddDays(90),
+                startDate = DateTime.UtcNow,
+                endDate = DateTime.UtcNow.AddDays(90),
             };
 
             _context.Credits.Add(credit);
@@ -71,13 +74,14 @@ namespace CreditService.Services
 
             return credit;
         }
+
         public async Task<CreditsResponse> GetMyCredits(int page, int size)
         {
             ValidatePagination(page, size);
-            Guid userId = GetCurrentUserId(_httpContextAccessor);
+            var currentUser = await GetCurrentUserAsync();
 
             var query = _context.Credits
-                                .Where(c => c.userId == userId)
+                                .Where(c => c.userId == currentUser.Id)
                                 .AsNoTracking();
 
             return await BuildCreditsResponse(query, page, size);
@@ -85,14 +89,14 @@ namespace CreditService.Services
 
         public async Task<Credit> GetCreditById(Guid creditId)
         {
-            Guid userId = GetCurrentUserId(_httpContextAccessor);
-
             if (creditId == Guid.Empty)
                 throw new ArgumentException("CreditId cannot be empty");
 
+            var currentUser = await GetCurrentUserAsync();
+
             var credit = await _context.Credits
                                        .AsNoTracking()
-                                       .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == userId);
+                                       .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser.Id);
 
             if (credit == null)
                 throw new KeyNotFoundException("Credit not found");
@@ -108,17 +112,17 @@ namespace CreditService.Services
             if (creditId == Guid.Empty)
                 throw new ArgumentException("CreditId cannot be empty");
 
-            Guid userId = GetCurrentUserId(_httpContextAccessor);
+            if (request.amount <= 0)
+                throw new ArgumentException("Payment amount must be greater than zero");
 
-            var credit = await _context.Credits.FirstOrDefaultAsync(c => c.Id == creditId && c.userId == userId);
+            var currentUser = await GetCurrentUserAsync();
+
+            var credit = await _context.Credits.FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser.Id);
             if (credit == null)
                 throw new KeyNotFoundException("Credit not found");
 
             if (credit.status != StatusCredit.ACTIVE)
                 throw new InvalidOperationException("Credit is not active");
-
-            if (request.amount <= 0)
-                throw new ArgumentException("Payment amount must be greater than zero");
 
             if (request.amount > credit.remainingAmount)
                 throw new InvalidOperationException("Payment amount exceeds remaining credit");
@@ -131,19 +135,18 @@ namespace CreditService.Services
             _context.Credits.Update(credit);
             await _context.SaveChangesAsync();
         }
-        //ПРОВЕРИТЬ EMPLOYEE в useerService
+
         public async Task<CreditsResponse> GetAllCreditsOfAllUsers(int page, int size)
         {
             ValidatePagination(page, size);
+            await EnsureCurrentUserHasBackofficeRoleAsync();
 
             var query = _context.Credits.AsNoTracking();
-
             return await BuildCreditsResponse(query, page, size);
         }
 
         public async Task<CreditTariff> CreateNewTariff(CreateCreditTarrifRequest request)
         {
-            //ПРОВЕРИТЬ РОЛЬ В ЮЗЕРС
             if (request == null)
                 throw new ArgumentException("Request is null");
 
@@ -152,6 +155,8 @@ namespace CreditService.Services
 
             if (request.interestRate <= 0)
                 throw new ArgumentException("Interest rate must be greater than zero");
+
+            await EnsureCurrentUserHasBackofficeRoleAsync();
 
             var tariff = new CreditTariff
             {
@@ -196,6 +201,7 @@ namespace CreditService.Services
 
         private async Task<CreditTariffResponse> BuildTariffResponse(IQueryable<CreditTariff> query, int numberPage, int size)
         {
+            var totalElements = await query.CountAsync();
 
             List<CreditTariff> tariffs = await query
                                                 .OrderBy(x => x.Id)
@@ -203,22 +209,19 @@ namespace CreditService.Services
                                                 .Take(size)
                                                 .ToListAsync();
 
-            var totalPages = (int)Math.Ceiling(tariffs.Count() / (double)size);
-
-            List<CreditTariff> creditTariff = await _context.Tariffs.Where(tariff => tariff.status == StatusCredit.ACTIVE).ToListAsync();
-            var total = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalElements / (double)size);
 
             PageInfo pageInfo = new PageInfo
             {
                 page = numberPage,
                 size = size,
-                totalElements = tariffs.Count(),
+                totalElements = totalElements,
                 totalPages = totalPages
             };
 
             CreditTariffResponse creditTariffResponse = new CreditTariffResponse
             {
-                content = creditTariff,
+                content = tariffs,
                 page = pageInfo
             };
 
@@ -234,15 +237,31 @@ namespace CreditService.Services
                 throw new ArgumentException("Size must be between 1 and 100");
         }
 
-        private Guid GetCurrentUserId(IHttpContextAccessor _httpContextAccessor)
+        private async Task<UserAccessResponse> GetCurrentUserAsync()
         {
-            string userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
             {
                 throw new UnauthorizedAccessException("User is not authenticated");
             }
 
-            return Guid.Parse(userIdClaim);
+            var userAccess = await _userServiceClient.GetUserAccessAsync(userId, CancellationToken.None);
+            if (!string.Equals(userAccess.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new UnauthorizedAccessException("User is not active");
+            }
+
+            return userAccess;
+        }
+
+        private async Task EnsureCurrentUserHasBackofficeRoleAsync()
+        {
+            var currentUser = await GetCurrentUserAsync();
+            if (!string.Equals(currentUser.Role, "ADMIN", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(currentUser.Role, "EMPLOYEE", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ForbiddenException("Only admin or employee can access this resource");
+            }
         }
     }
 }

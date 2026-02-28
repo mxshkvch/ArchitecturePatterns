@@ -54,6 +54,8 @@ builder.Services.AddDbContext<UserDbContext>(options =>
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
 byte[] key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null"));
 
 builder.Services.AddAuthentication(x =>
@@ -69,8 +71,10 @@ builder.Services.AddAuthentication(x =>
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = false,
-            ValidateAudience = false
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+            ValidateAudience = true,
+            ValidAudience = jwtAudience
         };
     });
 

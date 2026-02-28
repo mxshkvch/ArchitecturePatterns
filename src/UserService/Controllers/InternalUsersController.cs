@@ -1,42 +1,35 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using UserService.Contracts.Requests;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UserService.Data;
-using UserService.Domain;
-using UserService.Domain.Enums;
 
 namespace UserService.Controllers
 {
     [ApiController]
     [Route("internal/users")]
-    public class InternalUsersController : ControllerBase
+    [Authorize]
+    public class InternalUsersController(UserDbContext dbContext) : ControllerBase
     {
-        private readonly UserDbContext _dbContext;
-
-        public InternalUsersController(UserDbContext dbContext)
+        [HttpGet("{userId:guid}/access")]
+        public async Task<IActionResult> GetUserAccess(Guid userId, CancellationToken cancellationToken)
         {
-            _dbContext = dbContext;
-        }
+            var user = await dbContext.Users
+                .AsNoTracking()
+                .Where(x => x.Id == userId)
+                .Select(x => new
+                {
+                    x.Id,
+                    Role = x.Role.ToString(),
+                    Status = x.Status.ToString()
+                })
+                .FirstOrDefaultAsync(cancellationToken);
 
-        [HttpPost]
-        public async Task<IActionResult> Create(CreateUserAdminRequest request)
-        {
-            var user = new User
+            if (user is null)
             {
-                Id = (Guid)request.id,
-                Email = request.Email,
-                Role = request.Role,
-                PasswordHash = request.Password,
-                Status = (UserStatus)UserRole.CLIENT,
-                CreatedAt = DateTime.UtcNow,
-                FirstName = request.FirstName,
-                LastName = request.LastName,
-                Phone = request.Phone
-            };
+                return NotFound();
+            }
 
-            _dbContext.Users.Add(user);
-            await _dbContext.SaveChangesAsync();
-
-            return Ok();
+            return Ok(user);
         }
     }
 }

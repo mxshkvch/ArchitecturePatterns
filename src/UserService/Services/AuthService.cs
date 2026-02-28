@@ -78,6 +78,8 @@ public sealed class AuthService(
                 new Claim(ClaimTypes.Role, user.Role.ToString())
             }),
             Expires = DateTime.UtcNow.AddHours(2),
+            Issuer = configuration["Jwt:Issuer"] ?? "black.auth",
+            Audience = configuration["Jwt:Audience"] ?? "black.api",
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 
