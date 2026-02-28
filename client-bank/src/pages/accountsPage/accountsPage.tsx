@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Container, Row, Col, Card, Button, Badge, Pagination } from "react-bootstrap";
 import { CreateAccountModal } from "../../features/accounts/сreateAccountModal"
+import { DepositModal } from "../../features/accounts/depositMoneyModal"
 
 type Account = {
   id: string;
@@ -62,6 +63,26 @@ export const AccountsPage = () => {
     handleCloseModal();
   };
 
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [depositAmount, setDepositAmount] = useState<string>("");
+
+  const handleOpenDepositModal = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    setDepositAmount("");
+    setShowDepositModal(true);
+  };
+
+  const handleCloseDepositModal = () => {
+    setShowDepositModal(false);
+    setSelectedAccountId(null);
+  };
+
+  const handleDeposit = () => {
+    console.log(`POST /accounts/${selectedAccountId}/deposit`);
+    handleCloseDepositModal();
+  };
+
   return (
     <>
       <CreateAccountModal
@@ -72,6 +93,14 @@ export const AccountsPage = () => {
         initialDeposit={initialDeposit}
         setInitialDeposit={setInitialDeposit}
         onCreate={handleCreateAccount}
+      />
+
+      <DepositModal
+        show={showDepositModal}
+        onClose={handleCloseDepositModal}
+        amount={depositAmount}
+        setAmount={setDepositAmount}
+        onSubmit={handleDeposit}
       />
 
       <Container className="py-5">
@@ -104,7 +133,7 @@ export const AccountsPage = () => {
                   </Badge>
 
                   <div className="d-flex gap-2 flex-wrap">
-                    <Button size="sm" variant="primary">Внести</Button>
+                    <Button size="sm" variant="primary" onClick={() => handleOpenDepositModal(account.id)} disabled={account.status === "CLOSED"}>Внести</Button>
                     <Button size="sm" variant="warning">Снять</Button>
                     <Button size="sm" variant="info">История</Button>
                     <Button size="sm" variant="danger">Закрыть</Button>
