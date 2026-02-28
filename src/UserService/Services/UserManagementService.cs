@@ -15,18 +15,15 @@ public sealed class UserManagementService : IUserManagementService
     private readonly UserDbContext _dbContext;
     private readonly ILogger<UserManagementService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly IAuthServiceClient _authServiceClient;
 
     public UserManagementService(
         UserDbContext dbContext,
         ILogger<UserManagementService> logger,
-        IHttpContextAccessor httpContextAccessor,
-        IAuthServiceClient authServiceClient)
+        IHttpContextAccessor httpContextAccessor)
     {
         _dbContext = dbContext;
         _logger = logger;
         _httpContextAccessor = httpContextAccessor;
-        _authServiceClient = authServiceClient;
     }
 
     public async Task<UsersResponse> GetUsersAsync(PagingQuery query, CancellationToken cancellationToken)
@@ -41,7 +38,7 @@ public sealed class UserManagementService : IUserManagementService
         return new UsersResponse(users.Select(x => x.ToResponse()).ToArray(), page);
     }
 
-    public async Task<UserResponse> CreateUserAsync(CreateUserAdminRequest request, CancellationToken cancellationToken)
+    public async Task<UserResponse> CreateUserAsync(RegisterClientRequest request, CancellationToken cancellationToken)
     {
         await EnsureCurrentUserIsAdminAsync(cancellationToken);
         await EnsureEmailUniqueAsync(request.Email, cancellationToken);
@@ -50,14 +47,6 @@ public sealed class UserManagementService : IUserManagementService
 
         if (user.Role != UserRole.CLIENT && user.Role != UserRole.EMPLOYEE)
             throw new InvalidOperationException("User can have only EMPLOYEE or CLIENT role.");
-
-        var registerClientRequest = new RegisterClientRequest
-        {
-            Email = request.Email,
-            Password = request.Password
-        };
-
-        RegisterResponse registerResponse = await _authServiceClient.RegisterUserAsync(registerClientRequest);
 
         await PersistCreatedUserAsync(user, cancellationToken);
 
@@ -68,6 +57,14 @@ public sealed class UserManagementService : IUserManagementService
     public async Task<UserResponse> UpdateStatusAsync(Guid userId, UpdateUserStatusRequest request, CancellationToken cancellationToken)
     {
         ValidateStatusUpdate(request.Status);
+
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        var currentUser = _dbContext.Users.Where(u => u.Id.ToString() == userIdClaim).First();
+
+        if (currentUser.Role == UserRole.CLIENT) {
+            throw new ForbiddenException("User is not employee or admin");
+        }
 
         var user = await FindUserOrThrowAsync(userId, cancellationToken);
         user.Status = request.Status;
@@ -137,7 +134,7 @@ public sealed class UserManagementService : IUserManagementService
         }
     }
 
-    private static User BuildUser(CreateUserAdminRequest request)
+    private static User BuildUser(RegisterClientRequest request)
     {
         return new User
         {
@@ -148,7 +145,8 @@ public sealed class UserManagementService : IUserManagementService
             Phone = request.Phone,
             Role = request.Role,
             Status = UserStatus.ACTIVE,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
         };
     }
 

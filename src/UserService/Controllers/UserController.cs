@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using UserService.Contracts.Common.Abstractions;
 using UserService.Contracts.Requests;
 using UserService.Contracts.Responses;
+using UserService.Domain.Enums;
 using UserService.Services;
 
 namespace UserService.Controllers;
@@ -23,7 +24,7 @@ public sealed class UserController(IUserManagementService userManagementService)
 
     [HttpPost]
     [ProducesResponseType<UserResponse>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<UserResponse>> CreateUser([FromBody] CreateUserAdminRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<UserResponse>> CreateUser([FromBody] RegisterClientRequest request, CancellationToken cancellationToken)
     {
         var response = await userManagementService.CreateUserAsync(request, cancellationToken);
         return Created($"/admin/users/{response.Id}", response);

@@ -51,18 +51,8 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddHttpClient<IAuthServiceClient, AuthServiceClient>(client =>
-{
-    client.BaseAddress = new Uri("http://localhost:5001"); // адрес AuthService
-});
-
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
-
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? builder.Configuration["Jwt:SigningKey"]
-    ?? "JTD1EH4cfUatNJhTcqhiCdimMTMtK46W3XNEEORDfJl";
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 byte[] key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null"));
 
@@ -88,41 +78,42 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.Use(async (context, next) =>
+app.UseExceptionHandler(errorApp =>
 {
-    try
+    errorApp.Run(async context =>
     {
-        await next();
-    }
-    catch (Exception exception)
-    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        if (exception is null)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            return;
+        }
+
         var (statusCode, title) = exception switch
         {
-            ArgumentException => ((int)HttpStatusCode.BadRequest, "Некорректные данные запроса\nexception.Message"),
-            InvalidOperationException => ((int)HttpStatusCode.Conflict, "Конфликт данных\nexception.Message"),
-            ForbiddenException => ((int)HttpStatusCode.Forbidden, "Доступ запрещен\n{exception.Message}"),
-            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Ресурс не найден\nexception.Message"),
-            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Доступ запрещён\nexception.Message"),
-            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Ошибка внешнего сервиса\nexception.Message"),
-            HttpRequestException => ((int)HttpStatusCode.BadGateway, "Внешний сервис недоступен\nexception.Message"),
-            _ => ((int)HttpStatusCode.BadRequest, "Ошибка обработки запроса\nexception.Message")
+            ArgumentException => ((int)HttpStatusCode.BadRequest, "Некорректные данные запроса"),
+            InvalidOperationException => ((int)HttpStatusCode.Conflict, "Конфликт данных"),
+            ForbiddenException => ((int)HttpStatusCode.Forbidden, "Доступ запрещен"),
+            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Ресурс не найден"),
+            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Доступ запрещён"),
+            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Ошибка внешнего сервиса"),
+            HttpRequestException => ((int)HttpStatusCode.BadGateway, "Внешний сервис недоступен"),
+            _ => ((int)HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера")
         };
 
-        if (!context.Response.HasStarted)
-        {
-            context.Response.Clear();
-            context.Response.StatusCode = statusCode;
-            context.Response.ContentType = "application/problem+json";
+        context.Response.Clear();
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/problem+json";
 
-            await context.Response.WriteAsJsonAsync(new
-            {
-                title,
-                status = statusCode,
-                detail = exception.Message,
-                traceId = context.TraceIdentifier
-            });
-        }
-    }
+        await context.Response.WriteAsJsonAsync(new
+        {
+            title,
+            status = statusCode,
+            detail = exception.Message,
+            traceId = context.TraceIdentifier
+        });
+    });
 });
 
 app.UseSwagger();
