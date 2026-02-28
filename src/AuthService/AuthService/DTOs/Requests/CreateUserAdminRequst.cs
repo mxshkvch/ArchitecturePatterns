@@ -1,8 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using UserService.Domain.Enums;
-
-namespace UserService.Contracts.Requests;
-
+using AuthService.Enums;
+namespace AuthService.DTos.Requests;
 public sealed record CreateUserAdminRequest(
     [param: Required, EmailAddress] string Email,
     [param: Required] string FirstName,

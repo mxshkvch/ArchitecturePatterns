@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using UserService.Contracts.Common.Abstractions;
 using UserService.Contracts.Requests;
 using UserService.Contracts.Responses;
 using UserService.Services;

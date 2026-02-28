@@ -17,6 +17,13 @@ builder.Services.AddDbContext<AuthDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection")
     ));
 
+builder.Services.AddHttpClient<ICurrentUserService, CurrentUserService>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:60882");
+});
+
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>(); // без HttpClient
+
 byte[] key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null"));
 
 builder.Services.AddAuthentication(x =>
@@ -40,7 +47,6 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService.Services.AuthService>();
 
 var app = builder.Build();

@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
+using UserService.Contracts.Common.Abstractions;
 using UserService.Contracts.Responses;
 using UserService.Data;
 using UserService.Services;
@@ -50,6 +51,11 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddHttpClient<IAuthServiceClient, AuthServiceClient>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:5001"); // адрес AuthService
+});
+
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
@@ -58,45 +64,23 @@ var jwtKey = builder.Configuration["Jwt:Key"]
     ?? builder.Configuration["Jwt:SigningKey"]
     ?? "JTD1EH4cfUatNJhTcqhiCdimMTMtK46W3XNEEORDfJl";
 
-var signingKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtKey));
+byte[] key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null"));
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+builder.Services.AddAuthentication(x =>
+{
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+    .AddJwtBearer(x =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        x.RequireHttpsMetadata = false;
+        x.SaveToken = true;
+        x.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = signingKey,
-            ValidateIssuer = true,
-            ValidIssuer = jwtIssuer,
-            ValidateAudience = true,
-            ValidAudience = jwtAudience,
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(1)
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                var authorization = context.Request.Headers.Authorization.ToString();
-                if (string.IsNullOrWhiteSpace(authorization))
-                {
-                    return Task.CompletedTask;
-                }
-
-                const string bearerPrefix = "Bearer ";
-                var token = authorization.Trim();
-
-                if (token.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    token = token[bearerPrefix.Length..].Trim();
-                }
-
-                context.Token = token;
-                return Task.CompletedTask;
-            }
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ValidateIssuer = false,
+            ValidateAudience = false
         };
     });
 

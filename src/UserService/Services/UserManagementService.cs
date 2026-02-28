@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UserService.Contracts.Common;
+using UserService.Contracts.Common.Abstractions;
 using UserService.Contracts.Requests;
 using UserService.Contracts.Responses;
 using UserService.Data;
@@ -9,27 +10,23 @@ using UserService.Domain.Enums;
 
 namespace UserService.Services;
 
-public interface IUserManagementService
-{
-    Task<UsersResponse> GetUsersAsync(PagingQuery query, CancellationToken cancellationToken);
-    Task<UserResponse> CreateUserAsync(CreateUserAdminRequest request, CancellationToken cancellationToken);
-    Task<UserResponse> UpdateStatusAsync(Guid userId, UpdateUserStatusRequest request, CancellationToken cancellationToken);
-}
-
 public sealed class UserManagementService : IUserManagementService
 {
     private readonly UserDbContext _dbContext;
     private readonly ILogger<UserManagementService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IAuthServiceClient _authServiceClient;
 
     public UserManagementService(
         UserDbContext dbContext,
         ILogger<UserManagementService> logger,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IAuthServiceClient authServiceClient)
     {
         _dbContext = dbContext;
         _logger = logger;
         _httpContextAccessor = httpContextAccessor;
+        _authServiceClient = authServiceClient;
     }
 
     public async Task<UsersResponse> GetUsersAsync(PagingQuery query, CancellationToken cancellationToken)
@@ -47,15 +44,21 @@ public sealed class UserManagementService : IUserManagementService
     public async Task<UserResponse> CreateUserAsync(CreateUserAdminRequest request, CancellationToken cancellationToken)
     {
         await EnsureCurrentUserIsAdminAsync(cancellationToken);
-
         await EnsureEmailUniqueAsync(request.Email, cancellationToken);
 
         var user = BuildUser(request);
 
-        if (user.Role.ToString().ToUpper() != UserRole.CLIENT.ToString() && user.Role.ToString().ToUpper() != UserRole.EMPLOYEE.ToString())
-        {
+        if (user.Role != UserRole.CLIENT && user.Role != UserRole.EMPLOYEE)
             throw new InvalidOperationException("User can have only EMPLOYEE or CLIENT role.");
-        }
+
+        var registerClientRequest = new RegisterClientRequest
+        {
+            Email = request.Email,
+            Password = request.Password
+        };
+
+        RegisterResponse registerResponse = await _authServiceClient.RegisterUserAsync(registerClientRequest);
+
         await PersistCreatedUserAsync(user, cancellationToken);
 
         _logger.LogInformation("Admin created user {UserId} with role {Role}", user.Id, user.Role);

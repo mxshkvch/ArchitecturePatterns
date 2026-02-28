@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using AuthService.Abstractions;
 using AuthService.Data;
+using AuthService.DTos.Requests;
 using AuthService.DTOs.Requests;
 using AuthService.DTOs.Responses;
 using AuthService.Entities;
@@ -16,11 +17,13 @@ public class AuthService : IAuthService
 {
     private readonly IConfiguration _configuration;
     private readonly AuthDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AuthService(AuthDbContext context, IConfiguration configuration)
+    public AuthService(AuthDbContext context, IConfiguration configuration, ICurrentUserService currentUserService)
     {
         _context = context;
         _configuration = configuration;
+        _currentUserService = currentUserService;
     }
 
     public async Task<string> LoginAsync(LoginRequest request)
@@ -59,6 +62,10 @@ public class AuthService : IAuthService
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        CreateUserAdminRequest createUserRequest = new CreateUserAdminRequest(user.Email, null, null, user.Role, user.PasswordHash, null, user.Id);
+
+        await _currentUserService.CreateUserAsync(createUserRequest);
 
         return new RegisterResponse
         {
