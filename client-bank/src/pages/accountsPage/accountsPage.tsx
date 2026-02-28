@@ -83,6 +83,10 @@ export const AccountsPage = () => {
     handleCloseDepositModal();
   };
 
+  const handleCloseAccount = (accountId: string) => {
+    console.log(`DELETE /accounts/${accountId}`);
+  };
+
   return (
     <>
       <CreateAccountModal
@@ -136,7 +140,18 @@ export const AccountsPage = () => {
                     <Button size="sm" variant="primary" onClick={() => handleOpenDepositModal(account.id)} disabled={account.status === "CLOSED"}>Внести</Button>
                     <Button size="sm" variant="warning">Снять</Button>
                     <Button size="sm" variant="info">История</Button>
-                    <Button size="sm" variant="danger">Закрыть</Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => {
+                        if (window.confirm("Вы уверены, что хотите закрыть этот счет?")) {
+                          handleCloseAccount(account.id);
+                        }
+                      }}
+                      disabled={account.status === "CLOSED"}
+                    >
+                      Закрыть
+                    </Button>
                   </div>
                 </Card.Body>
               </Card>
