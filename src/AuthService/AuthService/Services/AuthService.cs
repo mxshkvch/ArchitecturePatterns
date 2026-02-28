@@ -51,9 +51,6 @@ public class AuthService : IAuthService
         {
             Id = Guid.NewGuid(),
             Email = request.Email,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Phone = request.Phone,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Role = UserRole.CLIENT,
             Status = UserStatus.ACTIVE,
