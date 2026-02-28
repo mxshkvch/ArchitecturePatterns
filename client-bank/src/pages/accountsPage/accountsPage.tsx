@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Container, Row, Col, Card, Button, Badge, Pagination } from "react-bootstrap";
 import { CreateAccountModal } from "../../features/accounts/сreateAccountModal"
 import { DepositModal } from "../../features/accounts/depositMoneyModal"
+import { WithdrawModal } from "../../features/accounts/WithdrawMoneyModal"
 
 type Account = {
   id: string;
@@ -63,6 +64,7 @@ export const AccountsPage = () => {
     handleCloseModal();
   };
 
+  
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState<string>("");
@@ -83,8 +85,26 @@ export const AccountsPage = () => {
     handleCloseDepositModal();
   };
 
+
   const handleCloseAccount = (accountId: string) => {
     console.log(`DELETE /accounts/${accountId}`);
+  };
+
+
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState<string>("");
+
+  const handleOpenWithdrawModal = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    setWithdrawAmount("");
+    setShowWithdrawModal(true);
+  };
+
+  const handleCloseWithdrawModal = () => setShowWithdrawModal(false);
+
+  const handleWithdraw = () => {
+    console.log(`POST /accounts/${selectedAccountId}/withdraw`);
+    handleCloseWithdrawModal();
   };
 
   return (
@@ -105,6 +125,14 @@ export const AccountsPage = () => {
         amount={depositAmount}
         setAmount={setDepositAmount}
         onSubmit={handleDeposit}
+      />
+
+      <WithdrawModal
+        show={showWithdrawModal}
+        onClose={handleCloseWithdrawModal}
+        amount={withdrawAmount}
+        setAmount={setWithdrawAmount}
+        onSubmit={handleWithdraw}
       />
 
       <Container className="py-5">
@@ -138,7 +166,7 @@ export const AccountsPage = () => {
 
                   <div className="d-flex gap-2 flex-wrap">
                     <Button size="sm" variant="primary" onClick={() => handleOpenDepositModal(account.id)} disabled={account.status === "CLOSED"}>Внести</Button>
-                    <Button size="sm" variant="warning">Снять</Button>
+                    <Button size="sm" variant="warning" onClick={() => handleOpenWithdrawModal(account.id)} disabled={account.status === "CLOSED"}>Снять</Button>
                     <Button size="sm" variant="info">История</Button>
                     <Button
                       size="sm"
