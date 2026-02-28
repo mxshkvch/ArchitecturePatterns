@@ -5,6 +5,7 @@ using CreditService.Domain.Enum;
 using CreditService.Domain.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using UserService.Data;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
@@ -13,29 +14,65 @@ namespace CreditService.Services
     public class CreditService : ICreditService
     {
         private readonly CreditDbContext _context;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public CreditService(CreditDbContext context)
+        public CreditService(CreditDbContext context, IHttpContextAccessor httpContextAccessor)
         {
-            _context = context;
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<CreditTariffResponse> GetAvailableTarrifs(int page, int size)
         {
-            page = page <= 0 ? 1 : page;
-            size = size <= 0 ? 10 : size;
+            ValidatePagination(page, size);
 
-            IQueryable<CreditTariff> query = _context.Tariffs
-                                                        .Where(t => t.status == StatusCredit.ACTIVE)
-                                                        .AsNoTracking();
+            var query = _context.Tariffs
+                .Where(t => t.status == StatusCredit.ACTIVE)
+                .AsNoTracking();
 
-
-
-
-            return await createCreditTariffResponse(query, page, size);
-
+            return await BuildTariffResponse(query, page, size);
         }
 
-        private async Task<CreditTariffResponse> createCreditTariffResponse(IQueryable<CreditTariff> query, int numberPage, int size)
+        public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)
+        {
+            Guid userId = GetCurrentUserId(_httpContextAccessor);
+
+            if (request == null)
+                throw new ArgumentException("Request is null");
+
+            if (request.amount <= 0)
+                throw new ArgumentException("Amount must be greater than zero");
+
+            var tariff = await _context.Tariffs
+                .FirstOrDefaultAsync(t => t.Id == request.tariffId);
+
+            if (tariff == null)
+                throw new KeyNotFoundException("Tariff not found");
+
+            if (tariff.status != StatusCredit.ACTIVE)
+                throw new InvalidOperationException("Tariff is not active");
+
+            var credit = new Credit
+            {
+                Id = Guid.NewGuid(),
+                userId = userId,
+                //accountId = ПОСЛЕ ПОДКЛЮЧЕНИЯ CORE
+                tarrifId = tariff.Id,
+                principal = request.amount,
+                remainingAmount = request.amount,
+                interestRate = tariff.interestRate,
+                status = StatusCredit.ACTIVE,
+                startDate=  DateTime.UtcNow,
+                endDate= DateTime.UtcNow.AddDays(90),
+            };
+
+            _context.Credits.Add(credit);
+            await _context.SaveChangesAsync();
+
+            return credit;
+        }
+
+        private async Task<CreditTariffResponse> BuildTariffResponse(IQueryable<CreditTariff> query, int numberPage, int size)
         {
 
             List<CreditTariff> tariffs = await query
@@ -64,6 +101,26 @@ namespace CreditService.Services
             };
 
             return creditTariffResponse;
+        }
+
+        private void ValidatePagination(int page, int size)
+        {
+            if (page <= 0)
+                throw new ArgumentException("Page must be greater than zero");
+
+            if (size <= 0 || size > 100)
+                throw new ArgumentException("Size must be between 1 and 100");
+        }
+
+        private Guid GetCurrentUserId(IHttpContextAccessor _httpContextAccessor)
+        {
+            string userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                throw new UnauthorizedAccessException("User is not authenticated");
+            }
+
+            return Guid.Parse(userIdClaim);
         }
     }
 }
