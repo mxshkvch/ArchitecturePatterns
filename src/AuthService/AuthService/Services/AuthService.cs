@@ -76,10 +76,6 @@ public class AuthService : IAuthService
         var tokenHandler = new JwtSecurityTokenHandler();
         string jwtKey = _configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null");
         byte[] key = Encoding.ASCII.GetBytes(jwtKey);
-
-        var issuer = _configuration["Jwt:Issuer"] ?? "black.auth";
-        var audience = _configuration["Jwt:Audience"] ?? "black.api";
-
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(new[]
@@ -89,11 +85,8 @@ public class AuthService : IAuthService
                 new Claim(ClaimTypes.Role, user.Role.ToString())
             }),
             Expires = DateTime.UtcNow.AddHours(2),
-            Issuer = issuer,
-            Audience = audience,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
-
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
