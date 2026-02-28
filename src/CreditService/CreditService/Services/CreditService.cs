@@ -71,6 +71,128 @@ namespace CreditService.Services
 
             return credit;
         }
+        public async Task<CreditsResponse> GetMyCredits(int page, int size)
+        {
+            ValidatePagination(page, size);
+            Guid userId = GetCurrentUserId(_httpContextAccessor);
+
+            var query = _context.Credits
+                                .Where(c => c.userId == userId)
+                                .AsNoTracking();
+
+            return await BuildCreditsResponse(query, page, size);
+        }
+
+        public async Task<Credit> GetCreditById(Guid creditId)
+        {
+            Guid userId = GetCurrentUserId(_httpContextAccessor);
+
+            if (creditId == Guid.Empty)
+                throw new ArgumentException("CreditId cannot be empty");
+
+            var credit = await _context.Credits
+                                       .AsNoTracking()
+                                       .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == userId);
+
+            if (credit == null)
+                throw new KeyNotFoundException("Credit not found");
+
+            return credit;
+        }
+
+        public async Task PayCreditById(CreditPaymentRequest request, Guid creditId)
+        {
+            if (request == null)
+                throw new ArgumentException("Request is null");
+
+            if (creditId == Guid.Empty)
+                throw new ArgumentException("CreditId cannot be empty");
+
+            Guid userId = GetCurrentUserId(_httpContextAccessor);
+
+            var credit = await _context.Credits.FirstOrDefaultAsync(c => c.Id == creditId && c.userId == userId);
+            if (credit == null)
+                throw new KeyNotFoundException("Credit not found");
+
+            if (credit.status != StatusCredit.ACTIVE)
+                throw new InvalidOperationException("Credit is not active");
+
+            if (request.amount <= 0)
+                throw new ArgumentException("Payment amount must be greater than zero");
+
+            if (request.amount > credit.remainingAmount)
+                throw new InvalidOperationException("Payment amount exceeds remaining credit");
+
+            credit.remainingAmount -= request.amount;
+
+            if (credit.remainingAmount <= 0)
+                credit.status = StatusCredit.PAID;
+
+            _context.Credits.Update(credit);
+            await _context.SaveChangesAsync();
+        }
+        //ПРОВЕРИТЬ EMPLOYEE в useerService
+        public async Task<CreditsResponse> GetAllCreditsOfAllUsers(int page, int size)
+        {
+            ValidatePagination(page, size);
+
+            var query = _context.Credits.AsNoTracking();
+
+            return await BuildCreditsResponse(query, page, size);
+        }
+
+        public async Task<CreditTariff> CreateNewTariff(CreateCreditTarrifRequest request)
+        {
+            //ПРОВЕРИТЬ РОЛЬ В ЮЗЕРС
+            if (request == null)
+                throw new ArgumentException("Request is null");
+
+            if (string.IsNullOrWhiteSpace(request.name))
+                throw new ArgumentException("Tariff name cannot be empty");
+
+            if (request.interestRate <= 0)
+                throw new ArgumentException("Interest rate must be greater than zero");
+
+            var tariff = new CreditTariff
+            {
+                Id = Guid.NewGuid(),
+                name = request.name,
+                interestRate = request.interestRate,
+                minAmount = request.minAmount,
+                maxAmount = request.maxAmount,
+                minTerm = request.minTerm,
+                maxTerm = request.maxTerm,
+                status = StatusCredit.ACTIVE
+            };
+
+            _context.Tariffs.Add(tariff);
+            await _context.SaveChangesAsync();
+
+            return tariff;
+        }
+
+        private async Task<CreditsResponse> BuildCreditsResponse(IQueryable<Credit> query, int page, int size)
+        {
+            int totalElements = await query.CountAsync();
+            List<Credit> credits = await query.OrderByDescending(c => c.startDate)
+                                     .Skip((page - 1) * size)
+                                     .Take(size)
+                                     .ToListAsync();
+
+            PageInfo pageInfo = new PageInfo
+            {
+                page = page,
+                size = size,
+                totalElements = totalElements,
+                totalPages = (int)Math.Ceiling(totalElements / (double)size)
+            };
+
+            return new CreditsResponse
+            {
+                content = credits,
+                page = pageInfo
+            };
+        }
 
         private async Task<CreditTariffResponse> BuildTariffResponse(IQueryable<CreditTariff> query, int numberPage, int size)
         {
