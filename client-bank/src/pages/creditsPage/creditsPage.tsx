@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Badge, Pagination } from "react-bootstrap";
+import { Container, Row, Col, Card, Badge, Pagination, Button } from "react-bootstrap";
+import { PayCreditModal } from "../../features/credits/payCreditModal"
 
 type Credit = {
   id: string;
@@ -37,6 +38,10 @@ export const CreditsPage = () => {
 
   const [currentPage, setCurrentPage] = useState(0);
 
+  const [showModal, setShowModal] = useState(false);
+  const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
+  const [amount, setAmount] = useState("");
+
   useEffect(() => {
     const fakeResponse: CreditsResponse = {
       content: Array.from({ length: 5 }, (_, i) => ({
@@ -62,6 +67,28 @@ export const CreditsPage = () => {
     setCreditsResponse(fakeResponse);
   }, []);
 
+  const handleOpenModal = (credit: Credit) => {
+    setSelectedCredit(credit);
+    setAmount("");
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedCredit(null);
+    setAmount("");
+  };
+
+  const handlePay = () => {
+    if (!selectedCredit) return;
+
+    console.log("Погашение кредита:");
+    console.log("CreditId:", selectedCredit.id);
+    console.log("Amount:", amount);
+
+    handleCloseModal();
+  };
+
   const credits = creditsResponse.content;
 
   return (
@@ -74,25 +101,51 @@ export const CreditsPage = () => {
 
       <Row>
         {credits.map((credit) => (
-          <Col md={6} key={credit.id} className="mb-4">
-            <Card className="shadow-sm">
-              <Card.Body>
-                <Card.Title>Кредит №{credit.id}</Card.Title>
-                <Card.Subtitle className="mb-2 text-muted">
-                  Сумма: {credit.principal.toLocaleString()} | Остаток: {credit.remainingAmount.toLocaleString()}
-                </Card.Subtitle>
-                <p>
-                  Процентная ставка: {credit.interestRate}%<br/>
-                  Период: {new Date(credit.startDate).toLocaleDateString()} - {new Date(credit.endDate).toLocaleDateString()}
-                </p>
-                <Badge bg={credit.status === "ACTIVE" ? "success" : "secondary"}>
-                  {credit.status}
-                </Badge>
-              </Card.Body>
+            <Col md={6} key={credit.id} className="mb-4 d-flex">
+            <Card className="shadow-sm flex-fill d-flex flex-column">
+                <Card.Body className="d-flex flex-column h-100">
+                <div className="flex-grow-1">
+                    <Card.Title>Кредит №{credit.id}</Card.Title>
+
+                    <Badge
+                    bg={credit.status === "ACTIVE" ? "success" : "secondary"}
+                    className="mb-2"
+                    >
+                    {credit.status}
+                    </Badge>
+
+                    <Card.Subtitle className="mb-2 text-muted">
+                    Сумма: {credit.principal.toLocaleString()} | Остаток:{" "}
+                    {credit.remainingAmount.toLocaleString()}
+                    </Card.Subtitle>
+
+                    <p>
+                    Процентная ставка: {credit.interestRate}%<br />
+                    Период:{" "}
+                    {new Date(credit.startDate).toLocaleDateString()} -{" "}
+                    {new Date(credit.endDate).toLocaleDateString()}
+                    </p>
+                </div>
+
+                {credit.status === "ACTIVE" && (
+                    <div className="d-grid">
+                        <Button variant="primary" onClick={() => handleOpenModal(credit)}>Погасить</Button>
+                    </div>
+                )}
+                </Card.Body>
             </Card>
-          </Col>
+            </Col>
         ))}
-      </Row>
+        </Row>
+
+      <PayCreditModal
+        show={showModal}
+        onClose={handleCloseModal}
+        amount={amount}
+        setAmount={setAmount}
+        onSubmit={handlePay}
+        maxAmount={selectedCredit?.remainingAmount}
+      />    
 
       <Row className="mt-4">
         <Col className="d-flex justify-content-center">
