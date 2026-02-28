@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Container, Row, Col, Card, Button, Badge, Pagination } from "react-bootstrap";
 import { CreateAccountModal } from "../../features/accounts/сreateAccountModal"
 import { DepositModal } from "../../features/accounts/depositMoneyModal"
-import { WithdrawModal } from "../../features/accounts/WithdrawMoneyModal"
+import { WithdrawModal } from "../../features/accounts/withdrawMoneyModal"
+import { useNavigate } from "react-router-dom";
 
 type Account = {
   id: string;
@@ -26,6 +27,7 @@ type AccountsResponse = {
 };
 
 export const AccountsPage = () => {
+  const navigate = useNavigate();
   const allAccountsResponse: AccountsResponse = {
     content: Array.from({ length: 12 }, (_, i) => ({
       id: `account-${i + 1}`,
@@ -64,7 +66,7 @@ export const AccountsPage = () => {
     handleCloseModal();
   };
 
-  
+
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState<string>("");
@@ -167,7 +169,7 @@ export const AccountsPage = () => {
                   <div className="d-flex gap-2 flex-wrap">
                     <Button size="sm" variant="primary" onClick={() => handleOpenDepositModal(account.id)} disabled={account.status === "CLOSED"}>Внести</Button>
                     <Button size="sm" variant="warning" onClick={() => handleOpenWithdrawModal(account.id)} disabled={account.status === "CLOSED"}>Снять</Button>
-                    <Button size="sm" variant="info">История</Button>
+                    <Button size="sm" variant="info" onClick={() => navigate(`/accounts/${account.id}/transactions`)}>История</Button>
                     <Button
                       size="sm"
                       variant="danger"
