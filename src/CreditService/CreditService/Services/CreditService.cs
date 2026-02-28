@@ -7,6 +7,7 @@ using CreditService.Domain.Models;
 using CreditService.Services.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using UserService.Data;
 
 namespace CreditService.Services
 {

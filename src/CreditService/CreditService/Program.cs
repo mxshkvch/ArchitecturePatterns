@@ -11,6 +11,7 @@ using Microsoft.OpenApi.Models;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
+using UserService.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
