@@ -4,9 +4,15 @@ COPY ["src/UserService/UserService.csproj", "src/UserService/"]
 RUN dotnet restore "src/UserService/UserService.csproj"
 COPY . .
 WORKDIR "/src/src/UserService"
+
+RUN dotnet add package Microsoft.OpenApi --version 1.6.22
+
+RUN dotnet build "UserService.csproj" -c Release
 RUN dotnet tool install -g dotnet-ef --version 10.0.3
 ENV PATH="$PATH:/root/.dotnet/tools"
-RUN dotnet ef migrations bundle -c UserDbContext -o /app/publish/efbundle
+
+RUN dotnet ef migrations bundle -c UserDbContext -o /app/publish/efbundle --configuration Release
+
 RUN dotnet publish "UserService.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final

@@ -4,9 +4,14 @@ COPY ["src/CreditService/CreditService/CreditService.csproj", "src/CreditService
 RUN dotnet restore "src/CreditService/CreditService/CreditService.csproj"
 COPY . .
 WORKDIR "/src/src/CreditService/CreditService"
+
+RUN dotnet build "CreditService.csproj" -c Release
+
 RUN dotnet tool install -g dotnet-ef --version 8.0.4
 ENV PATH="$PATH:/root/.dotnet/tools"
-RUN dotnet ef migrations bundle -c CreditDbContext -o /app/publish/efbundle
+
+RUN dotnet ef migrations bundle -c CreditDbContext -o /app/publish/efbundle --configuration Release
+
 RUN dotnet publish "CreditService.csproj" -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final

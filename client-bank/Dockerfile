@@ -2,6 +2,7 @@
 WORKDIR /app
 COPY client-bank/package.json client-bank/package-lock.json* ./
 RUN npm install
+RUN npm install react-bootstrap bootstrap react-router-dom
 COPY client-bank/ .
 RUN npm run build
 

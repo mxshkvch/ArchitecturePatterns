@@ -2,8 +2,8 @@
 WORKDIR /app
 COPY staff-service/package.json staff-service/package-lock.json* ./
 RUN npm install
+RUN npm install axios react-router-dom
 COPY staff-service/ .
-# Заменяем https:// на http:// так как API пробрасывается наружу без SSL
 RUN sed -i 's|https://localhost:60882|http://localhost:60882|g' src/services/api.js
 RUN npm run build
 
