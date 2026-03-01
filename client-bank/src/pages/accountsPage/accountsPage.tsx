@@ -4,6 +4,7 @@ import { CreateAccountModal } from "../../features/accounts/сreateAccountModal"
 import { DepositModal } from "../../features/accounts/depositMoneyModal"
 import { WithdrawModal } from "../../features/accounts/withdrawMoneyModal"
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 type Account = {
   id: string;
@@ -28,31 +29,45 @@ type AccountsResponse = {
 
 export const AccountsPage = () => {
   const navigate = useNavigate();
-  const allAccountsResponse: AccountsResponse = {
-    content: Array.from({ length: 12 }, (_, i) => ({
-      id: `account-${i + 1}`,
-      accountNumber: `40817810099910${i + 4300}`,
-      userId: `user-${i + 1}`,
-      balance: 1000 * (i + 1),
-      currency: i % 2 === 0 ? "RUB" : "USD",
-      status: i % 3 === 0 ? "CLOSED" : "ACTIVE",
-      createdAt: `2026-02-${i + 1}`,
-      closedAt: null,
-    })),
-    page: {
-      page: 0,
-      size: 5,
-      totalElements: 12,
-      totalPages: Math.ceil(12 / 5),
-    },
-  };
 
+  //cписок счетов (потом перенести в /api)
+  const [accountsResponse, setAccountsResponse] = useState<AccountsResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = allAccountsResponse.page.size;
-  const accounts = allAccountsResponse.content.slice(
-    currentPage * pageSize,
-    (currentPage + 1) * pageSize
-  );
+
+  const pageSize = 6;
+
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+
+        const response = await fetch(
+          `http://localhost:5000/api/accounts?page=${currentPage}&size=${pageSize}`,
+          {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
+        );
+
+        if (!response.ok) {
+          console.error("Ошибка загрузки:", await response.text());
+          return;
+        }
+
+        const data: AccountsResponse = await response.json();
+        setAccountsResponse(data);
+      } catch (error) {
+        console.error("Ошибка сети:", error);
+      }
+    };
+
+    fetchAccounts();
+  }, [currentPage]);
+
+  const accounts = accountsResponse?.content ?? [];
+
+
 
   const [showModal, setShowModal] = useState(false);
   const [currency, setCurrency] = useState<"RUB" | "USD">("RUB");
@@ -61,10 +76,38 @@ export const AccountsPage = () => {
   const handleCloseModal = () => setShowModal(false);
   const handleOpenModal = () => setShowModal(true);
 
-  const handleCreateAccount = () => {
-    console.log("Создан счёт:", { currency, initialDeposit });
+  //создание счета (потом перенести в /api)
+  const handleCreateAccount = async () => {
+  try {
+    const token = localStorage.getItem("accessToken");
+
+    const response = await fetch("http://localhost:5000/api/accounts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        Currency: currency,
+        InitialDeposit: Number(initialDeposit) || 0,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Ошибка при создании счета:", await response.text());
+      return;
+    }
+
+    const data = await response.json();
+    console.log("Счет создан:", data);
+
     handleCloseModal();
-  };
+    setInitialDeposit("");
+    setCurrency("RUB");
+  } catch (err) {
+    console.error("Ошибка сети:", err);
+  }
+};
 
 
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -82,32 +125,118 @@ export const AccountsPage = () => {
     setSelectedAccountId(null);
   };
 
-  const handleDeposit = () => {
-    console.log(`POST /accounts/${selectedAccountId}/deposit`);
-    handleCloseDepositModal();
-  };
+  //пополнение счета (потом перенести в /api)
+  const handleDeposit = async () => {
+  if (!selectedAccountId) return;
+
+  try {
+    const token = localStorage.getItem("accessToken");
+
+    const response = await fetch(
+      `http://localhost:5000/api/accounts/${selectedAccountId}/deposit`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          Amount: Number(depositAmount) || 0,
+          Description: "",
+        }),
+      }
+    );
+
+    if (response.ok) {
+      console.log("Депозит успешен");
+    } else {
+      const text = await response.text(); 
+      console.error("Ошибка при депозите:", text);
+    }
+
+    setShowDepositModal(false);
+    setDepositAmount("");
+  } catch (err) {
+    console.error("Ошибка сети:", err);
+  }
+};
+
+//закрыть счет (потом перенести в /api)
+const handleCloseAccount = async (accountId: string) => {
+  try {
+    const token = localStorage.getItem("accessToken");
+
+    const response = await fetch(
+      `http://localhost:5000/api/accounts/${accountId}`,
+      {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }
+    );
+
+    if (response.ok) {
+      console.log("Счёт успешно закрыт");
+    } else {
+      const text = await response.text();
+      console.error("Ошибка при закрытии счёта:", text);
+    }
+  } catch (err) {
+    console.error("Ошибка сети:", err);
+  }
+};
 
 
-  const handleCloseAccount = (accountId: string) => {
-    console.log(`DELETE /accounts/${accountId}`);
-  };
+//снятие со счета (потом перенести в /api)
+const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+const [withdrawAmount, setWithdrawAmount] = useState<string>("");
 
+const handleOpenWithdrawModal = (accountId: string) => {
+  setSelectedAccountId(accountId);
+  setWithdrawAmount("");
+  setShowWithdrawModal(true);
+};
 
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState<string>("");
+const handleCloseWithdrawModal = () => {
+  setShowWithdrawModal(false);
+  setSelectedAccountId(null);
+};
 
-  const handleOpenWithdrawModal = (accountId: string) => {
-    setSelectedAccountId(accountId);
+const handleWithdraw = async () => {
+  if (!selectedAccountId) return;
+
+  try {
+    const token = localStorage.getItem("accessToken");
+
+    const response = await fetch(
+      `http://localhost:5000/api/accounts/${selectedAccountId}/withdraw`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          Amount: Number(withdrawAmount) || 0,
+          Description: "",
+        }),
+      }
+    );
+
+    if (response.ok) {
+      console.log("Снятие успешное");
+    } else {
+      const text = await response.text();
+      console.error("Ошибка при снятии:", text);
+    }
+
+    setShowWithdrawModal(false);
     setWithdrawAmount("");
-    setShowWithdrawModal(true);
-  };
-
-  const handleCloseWithdrawModal = () => setShowWithdrawModal(false);
-
-  const handleWithdraw = () => {
-    console.log(`POST /accounts/${selectedAccountId}/withdraw`);
-    handleCloseWithdrawModal();
-  };
+  } catch (err) {
+    console.error("Ошибка сети:", err);
+  }
+};
 
   return (
     <>
@@ -190,13 +319,11 @@ export const AccountsPage = () => {
         </Row>
 
         <Row className="mt-4">
-          <Col className="d-flex justify-content-center">
-            <Pagination>
-              <Pagination.Prev
-                disabled={currentPage === 0}
-                onClick={() => setCurrentPage(currentPage - 1)}
-              />
-              {Array.from({ length: allAccountsResponse.page.totalPages }, (_, i) => (
+        <Col className="d-flex justify-content-center">
+          <Pagination>
+            <Pagination.Prev disabled={currentPage === 0} onClick={() => setCurrentPage((prev) => prev - 1)}/>
+            {Array.from(
+              { length: accountsResponse?.page.totalPages ?? 0 },(_, i) => (
                 <Pagination.Item
                   key={i}
                   active={i === currentPage}
@@ -204,14 +331,13 @@ export const AccountsPage = () => {
                 >
                   {i + 1}
                 </Pagination.Item>
-              ))}
-              <Pagination.Next
-                disabled={currentPage === allAccountsResponse.page.totalPages - 1}
-                onClick={() => setCurrentPage(currentPage + 1)}
-              />
-            </Pagination>
-          </Col>
-        </Row>
+              )
+            )}
+
+            <Pagination.Next disabled={currentPage ===(accountsResponse?.page.totalPages ?? 1) - 1} onClick={() => setCurrentPage((prev) => prev + 1)}/>
+          </Pagination>
+        </Col>
+      </Row>
       </Container>
     </>
   );

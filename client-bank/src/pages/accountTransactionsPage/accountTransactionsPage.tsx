@@ -5,7 +5,7 @@ import { Container, Table, Pagination, Spinner } from "react-bootstrap";
 type Transaction = {
   id: string;
   accountId: string;
-  type: "DEPOSIT" | "WITHDRAW";
+  type: "DEPOSIT" | "WITHDRAWAL";
   amount: number;
   description: string;
   timestamp: string;
@@ -27,7 +27,7 @@ export const AccountTransactionsPage = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 10;
+  const pageSize = 6;
   const [totalPages, setTotalPages] = useState(0);
 
   const fetchTransactions = async (page: number) => {
@@ -35,28 +35,27 @@ export const AccountTransactionsPage = () => {
     setLoading(true);
 
     try {
-      const data: TransactionsResponse = {
-        content: Array.from({ length: 10 }, (_, i) => ({
-          id: `txn-${page * 10 + i + 1}`,
-          accountId: accountId,
-          type: i % 2 === 0 ? "DEPOSIT" : "WITHDRAW",
-          amount: (i + 1) * 100,
-          description: `Операция ${i + 1}`,
-          timestamp: new Date(Date.now() - i * 86400000).toISOString(),
-          balanceAfter: 1000 + (i + 1) * 100,
-        })),
-        page: {
-          page,
-          size: pageSize,
-          totalElements: 50,
-          totalPages: 5,
-        },
-      };
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch(
+        `http://localhost:5000/api/accounts/${accountId}/transactions?page=${page}&size=${pageSize}`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
 
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("Ошибка при загрузке транзакций:", text);
+        return;
+      }
+
+      const data: TransactionsResponse = await response.json();
       setTransactions(data.content);
       setTotalPages(data.page.totalPages);
     } catch (error) {
-      console.error("Ошибка при загрузке транзакций", error);
+      console.error("Ошибка сети при загрузке транзакций:", error);
     } finally {
       setLoading(false);
     }

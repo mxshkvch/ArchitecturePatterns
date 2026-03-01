@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Row, Col, Form, Button, Card, Alert, Spinner } from "react-bootstrap";
@@ -5,36 +6,43 @@ import { Container, Row, Col, Form, Button, Card, Alert, Spinner } from "react-b
 export const LoginPage = () => {
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-  });
-
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  //потом написать нормальные запросы
-  const handleSubmit = (e: React.SyntheticEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    setTimeout(() => {
-      if (form.email === "test@mail.com" && form.password === "123456") {
-        localStorage.setItem("accessToken", "mock-token");
-        navigate("/accounts");
+    try {
+      const response = await axios.post(
+        "http://localhost:60882/api/auth/login",
+        {
+          email: form.email,
+          password: form.password
+        },
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+        }
+      );
+
+      localStorage.setItem("accessToken", response.data.token);
+      navigate("/accounts");
+    } catch (err: any) {
+      if (err.response) {
+        setError(err.response.data.detail || "Ошибка авторизации");
       } else {
-        setError("Неверный email или пароль");
-        setLoading(false);
+        setError("Сервер недоступен или CORS ошибка");
       }
-    }, 1000);
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,47 +52,21 @@ export const LoginPage = () => {
           <Card className="shadow">
             <Card.Body>
               <h3 className="text-center mb-4">Вход</h3>
-
               {error && <Alert variant="danger">{error}</Alert>}
-
               <Form onSubmit={handleSubmit}>
                 <Form.Group className="mb-3">
                   <Form.Label>Email</Form.Label>
-                  <Form.Control
-                    type="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Form.Control type="email" name="email" value={form.email} onChange={handleChange} required />
                 </Form.Group>
-
                 <Form.Group className="mb-4">
                   <Form.Label>Пароль</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Form.Control type="password" name="password" value={form.password} onChange={handleChange} required />
                 </Form.Group>
-
-                <Button
-                  variant="primary"
-                  type="submit"
-                  className="w-100"
-                  disabled={loading}
-                >
-                  {loading ? (<> <Spinner size="sm" animation="border" className="me-2" />Вход...</>) : ("Войти")}
+                <Button variant="primary" type="submit" className="w-100" disabled={loading}>
+                  {loading ? <><Spinner size="sm" animation="border" className="me-2" />Вход...</> : "Войти"}
                 </Button>
-
-                <Button
-                    variant="secondary"
-                    className="w-100 mt-2"
-                    onClick={() => navigate("/register")}
-                >
-                Нет аккаунта? Зарегистрироваться
+                <Button variant="secondary" className="w-100 mt-2" onClick={() => navigate("/register")}>
+                  Нет аккаунта? Зарегистрироваться
                 </Button>
               </Form>
             </Card.Body>

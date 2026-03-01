@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Row, Col, Form, Button, Card, Alert, Spinner } from "react-bootstrap";
@@ -23,24 +24,41 @@ export const RegisterPage = () => {
     });
   };
 
-  //потом написать нормальные запросы
-  const handleSubmit = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const handleSubmit = async (e: React.SyntheticEvent) => {
+  e.preventDefault();
+  setError(null);
+  setLoading(true);
 
-    setTimeout(() => {
-      if (form.email === "test@mail.com") {
-        setError("Пользователь уже существует");
-        setLoading(false);
-        return;
+  try {
+    const response = await axios.post(
+      "http://localhost:60882/api/auth/register",
+      {
+        email: form.email,
+        password: form.password,
+        role: "CLIENT",
+        firstName: form.firstName,
+        lastName: form.lastName,
+        phone: form.phone,
       }
+    );
 
-      localStorage.setItem("accessToken", "mock-token");
+    if (response.data?.accessToken) {
+      localStorage.setItem("accessToken", response.data.accessToken);
+    }
 
-      navigate("/");
-    }, 1000);
-  };
+    navigate("/accounts");
+  } catch (err: any) {
+    if (err.response?.status === 400) {
+      setError("Некорректные данные");
+    } else if (err.response?.status === 409) {
+      setError("Пользователь уже существует");
+    } else {
+      setError("Ошибка регистрации");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Container className="vh-100 d-flex align-items-center justify-content-center">
@@ -54,77 +72,35 @@ export const RegisterPage = () => {
 
                 <Form onSubmit={handleSubmit}>
                     <Form.Group className="mb-3">
-                    <Form.Label>Email</Form.Label>
-                    <Form.Control
-                        type="email"
-                        name="email"
-                        value={form.email}
-                        onChange={handleChange}
-                        required
-                    />
+                      <Form.Label>Email</Form.Label>
+                      <Form.Control type="email" name="email" value={form.email} onChange={handleChange} required/>
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                    <Form.Label>Имя</Form.Label>
-                    <Form.Control
-                        type="text"
-                        name="firstName"
-                        value={form.firstName}
-                        onChange={handleChange}
-                        required
-                    />
+                      <Form.Label>Имя</Form.Label>
+                      <Form.Control type="text" name="firstName" value={form.firstName} onChange={handleChange}required/>
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                    <Form.Label>Фамилия</Form.Label>
-                    <Form.Control
-                        type="text"
-                        name="lastName"
-                        value={form.lastName}
-                        onChange={handleChange}
-                        required
-                    />
+                      <Form.Label>Фамилия</Form.Label>
+                      <Form.Control type="text" name="lastName" value={form.lastName} onChange={handleChange} required/>
                     </Form.Group>
 
                     <Form.Group className="mb-3">
-                    <Form.Label>Телефон</Form.Label>
-                    <Form.Control
-                        type="text"
-                        name="phone"
-                        value={form.phone}
-                        onChange={handleChange}
-                        required
-                    />
+                      <Form.Label>Телефон</Form.Label>
+                      <Form.Control type="text" name="phone" value={form.phone} onChange={handleChange} required/>
                     </Form.Group>
 
                     <Form.Group className="mb-4">
-                    <Form.Label>Пароль</Form.Label>
-                    <Form.Control
-                        type="password"
-                        name="password"
-                        value={form.password}
-                        onChange={handleChange}
-                        required
-                    />
+                      <Form.Label>Пароль</Form.Label>
+                      <Form.Control type="password" name="password" value={form.password} onChange={handleChange} required/>
                     </Form.Group>
 
-                    <Button
-                    variant="primary"
-                    type="submit"
-                    className="w-100"
-                    disabled={loading}
-                    >
-                    {loading ? (<><Spinner size="sm" animation="border" className="me-2" />Регистрация...</>) : ("Зарегистрироваться")}
+                    <Button variant="primary" type="submit" className="w-100" disabled={loading}>
+                      {loading ? (<><Spinner size="sm" animation="border" className="me-2" />Регистрация...</>) : ("Зарегистрироваться")}
                     </Button>
 
-                    <Button
-                        variant="secondary"
-                        className="w-100 mt-2"
-                        onClick={() => navigate("/login")}
-                    >
-                    Уже есть аккаунт? Войти
-                    </Button>
-
+                    <Button variant="secondary" className="w-100 mt-2" onClick={() => navigate("/login")}>Уже есть аккаунт? Войти</Button>
                 </Form>
                 </Card.Body>
             </Card>
