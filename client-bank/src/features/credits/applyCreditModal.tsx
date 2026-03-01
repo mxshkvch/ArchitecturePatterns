@@ -1,19 +1,6 @@
-import axios from "axios";
 import { useState, useEffect } from "react";
 import { Modal, Button, Form, ListGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
-
-export type TariffStatus = "ACTIVE" | "PAID" | "OVERDUE" | "DEFAULTED";
-
-export type Tariff = {
-  id: string;
-  name: string;
-  interestRate: number;
-  minAmount: number;
-  maxAmount: number;
-  minTerm: number;
-  maxTerm: number;
-  status: TariffStatus;
-};
+import type { Tariff } from "../../shared/lib/api/credits";
 
 type ApplyCreditModalProps = {
   show: boolean;
@@ -23,7 +10,6 @@ type ApplyCreditModalProps = {
   loading: boolean;
   error: string | null;
 };
-
 
 export const ApplyCreditModal = ({show, onClose, onSubmit, tariffs, loading, error }: ApplyCreditModalProps) => {
   const [selectedTariff, setSelectedTariff] = useState<Tariff | null>(null);
@@ -38,36 +24,21 @@ export const ApplyCreditModal = ({show, onClose, onSubmit, tariffs, loading, err
     }
   }, [show]);
 
-  const handleSubmit = async () => {
-  if (!selectedTariff) return;
-  const numAmount = Number(amount);
-  const numTerm = Number(term);
+  const handleSubmit = () => {
+    if (!selectedTariff) return;
+    const numAmount = Number(amount);
+    const numTerm = Number(term);
 
-  if (numAmount < selectedTariff.minAmount || numAmount > selectedTariff.maxAmount || numTerm < selectedTariff.minTerm || numTerm > selectedTariff.maxTerm) {
-    alert("Введите корректные значения");
-    return;
-  }
+    if (numAmount < selectedTariff.minAmount || numAmount > selectedTariff.maxAmount || numTerm < selectedTariff.minTerm || numTerm > selectedTariff.maxTerm) {
+      return;
+    }
 
-  try {
-    const token = localStorage.getItem("accessToken");
-    await axios.post(
-      "http://localhost:5107/credits/apply",
-      { tariffId: selectedTariff.id, amount: numAmount, term: numTerm },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    alert("Кредит успешно оформлен!");
+    onSubmit(selectedTariff.id, numAmount, numTerm);
     onClose();
-  } catch (err) {
-    console.error(err);
-    alert("Ошибка при оформлении кредита");
-  }
-};
+  };
 
-  const isAmountInvalid =
-    selectedTariff && amount !== "" && (Number(amount) < selectedTariff.minAmount || Number(amount) > selectedTariff.maxAmount);
-
-  const isTermInvalid =
-    selectedTariff && term !== "" && (Number(term) < selectedTariff.minTerm || Number(term) > selectedTariff.maxTerm);
+  const isAmountInvalid = selectedTariff && amount !== "" && (Number(amount) < selectedTariff.minAmount || Number(amount) > selectedTariff.maxAmount);
+  const isTermInvalid = selectedTariff && term !== "" && (Number(term) < selectedTariff.minTerm || Number(term) > selectedTariff.maxTerm);
 
   const isValid =
     selectedTariff &&

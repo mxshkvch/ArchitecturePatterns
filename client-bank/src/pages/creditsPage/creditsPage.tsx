@@ -1,44 +1,9 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { Container, Row, Col, Card, Badge, Pagination, Button } from "react-bootstrap";
 import { PayCreditModal } from "../../features/credits/payCreditModal";
 import { ApplyCreditModal } from "../../features/credits/applyCreditModal";
-
-type Credit = {
-  id: string;
-  userId: string;
-  accountId: string;
-  tariffId: string;
-  principal: number;
-  remainingAmount: number;
-  interestRate: number;
-  startDate: string;
-  endDate: string;
-  status: "ACTIVE" | "CLOSED";
-};
-
-type CreditsResponse = {
-  content: Credit[];
-  page: {
-    page: number;
-    size: number;
-    totalElements: number;
-    totalPages: number;
-  };
-};
-
-export type TariffStatus = "ACTIVE" | "PAID" | "OVERDUE" | "DEFAULTED";
-
-export type Tariff = {
-  id: string;
-  name: string;
-  interestRate: number;
-  minAmount: number;
-  maxAmount: number;
-  minTerm: number;
-  maxTerm: number;
-  status: TariffStatus;
-};
+import type { Credit, CreditsResponse, Tariff } from "../../shared/lib/api/credits";;
+import { fetchMyCredits, payCredit, fetchTariffs, applyCredit } from "../../shared/lib/api/credits";
 
 export const CreditsPage = () => {
   const [creditsResponse, setCreditsResponse] = useState<CreditsResponse>({
@@ -57,15 +22,28 @@ export const CreditsPage = () => {
   const [tariffsError, setTariffsError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!showApplyModal) return;
+    const loadCredits = async () => {
+      try {
+        const data = await fetchMyCredits(currentPage + 1, 10);
+        setCreditsResponse(data);
+      } catch (err) {
+        console.error("Не удалось загрузить кредиты", err);
+        setCreditsResponse({
+          content: [],
+          page: { page: 0, size: 10, totalElements: 0, totalPages: 0 },
+        });
+      }
+    };
+    loadCredits();
+  }, [currentPage]);
 
+  useEffect(() => {
+    if (!showApplyModal) return;
     setTariffsLoading(true);
     setTariffsError(null);
 
-    axios
-      axios
-      .get("http://localhost:5107/credits/tariffs", { params: { page: 1, size: 10 } }) 
-      .then((res) => setTariffs(res.data.content))
+    fetchTariffs()
+      .then(setTariffs)
       .catch(() => setTariffsError("Не удалось загрузить тарифы"))
       .finally(() => setTariffsLoading(false));
   }, [showApplyModal]);
@@ -83,72 +61,40 @@ export const CreditsPage = () => {
   };
 
   const handlePay = async () => {
-  if (!selectedCredit) return;
-  const numAmount = Number(amount);
-  if (numAmount <= 0) {
-    alert("Введите сумму погашения больше 0");
-    return;
-  }
-
-  try {
-    const token = localStorage.getItem("accessToken");
-    await axios.post(
-      `http://localhost:5107/credits/${selectedCredit.id}/pay`,
-      { amount: numAmount },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    alert("Платёж успешно проведён!");
-    handleCloseModal();
-    setCreditsResponse((prev) => ({
-      ...prev,
-      content: prev.content.map((c) =>
-        c.id === selectedCredit.id
-          ? { ...c, remainingAmount: c.remainingAmount - numAmount }
-          : c
-      ),
-    }));
-  } catch (err) {
-    console.error(err);
-    alert("Ошибка при проведении платежа");
-  }
-};
-
-  const handleApplyCredit = (tariffId: string, amount: number, term: number) => {
-    console.log("Оформлен кредит с тарифом", tariffId, "сумма", amount, "срок", term);
-  };
-
-  useEffect(() => {
-  const fetchCredits = async () => {
+    if (!selectedCredit) return;
+    const numAmount = Number(amount);
+    if (numAmount <= 0) {
+      alert("Введите сумму погашения больше 0");
+      return;
+    }
     try {
-      const token = localStorage.getItem("accessToken");
-      const res = await axios.get("http://localhost:5107/credits/my", {
-        params: { page: currentPage + 1, size: 10 },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      setCreditsResponse({
-        content: res.data.content,
-        page: res.data.page,
-      });
-    } catch (error) {
-      console.error("Не удалось загрузить кредиты", error);
-      setCreditsResponse({
-        content: [],
-        page: { page: 0, size: 10, totalElements: 0, totalPages: 0 },
-      });
+      await payCredit(selectedCredit.id, numAmount);
+      handleCloseModal();
+      setCreditsResponse((prev) => ({
+        ...prev,
+        content: prev.content.map((c) =>
+          c.id === selectedCredit.id
+            ? { ...c, remainingAmount: c.remainingAmount - numAmount }
+            : c
+        ),
+      }));
+    } catch (err) {
+      console.error(err);
+      alert("Ошибка при проведении платежа");
     }
   };
 
-  fetchCredits();
-}, [currentPage]);
-
-  const credits = creditsResponse.content;
+  const handleApplyCredit = async (tariffId: string, amount: number, term: number) => {
+    try {
+      await applyCredit(tariffId, amount, term);
+      setShowApplyModal(false);
+      const data = await fetchMyCredits(currentPage + 1, 10);
+      setCreditsResponse(data);
+    } catch (err) {
+      console.error(err);
+      alert("Ошибка при оформлении кредита");
+    }
+  };
 
   return (
     <Container className="py-5">
@@ -180,7 +126,7 @@ export const CreditsPage = () => {
       </Row>
 
       <Row>
-        {credits.map((credit) => (
+        {creditsResponse.content.map((credit) => (
           <Col md={6} key={credit.id} className="mb-4 d-flex">
             <Card className="shadow-sm flex-fill d-flex flex-column">
               <Card.Body className="d-flex flex-column h-100">
