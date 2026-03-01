@@ -1,119 +1,99 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Container, Row, Col, Card, Button, Badge, Pagination } from "react-bootstrap";
-import { CreateAccountModal } from "../../features/accounts/сreateAccountModal"
-import { DepositModal } from "../../features/accounts/depositMoneyModal"
-import { WithdrawModal } from "../../features/accounts/withdrawMoneyModal"
 import { useNavigate } from "react-router-dom";
+import { CreateAccountModal } from "../../features/accounts/сreateAccountModal";
+import { DepositModal } from "../../features/accounts/depositMoneyModal";
+import { WithdrawModal } from "../../features/accounts/withdrawMoneyModal";
 
-type Account = {
-  id: string;
-  accountNumber: string;
-  userId: string;
-  balance: number;
-  currency: string;
-  status: "ACTIVE" | "CLOSED";
-  createdAt: string;
-  closedAt: string | null;
-};
-
-type AccountsResponse = {
-  content: Account[];
-  page: {
-    page: number;
-    size: number;
-    totalElements: number;
-    totalPages: number;
-  };
-};
+import { fetchAccounts, createAccount, depositToAccount, withdrawFromAccount, closeAccount  } from "../../shared/lib/api/accounts";
+import type { AccountsResponse,  } from "../../shared/lib/api/accounts";
 
 export const AccountsPage = () => {
   const navigate = useNavigate();
-  const allAccountsResponse: AccountsResponse = {
-    content: Array.from({ length: 12 }, (_, i) => ({
-      id: `account-${i + 1}`,
-      accountNumber: `40817810099910${i + 4300}`,
-      userId: `user-${i + 1}`,
-      balance: 1000 * (i + 1),
-      currency: i % 2 === 0 ? "RUB" : "USD",
-      status: i % 3 === 0 ? "CLOSED" : "ACTIVE",
-      createdAt: `2026-02-${i + 1}`,
-      closedAt: null,
-    })),
-    page: {
-      page: 0,
-      size: 5,
-      totalElements: 12,
-      totalPages: Math.ceil(12 / 5),
-    },
-  };
 
+  const [accountsResponse, setAccountsResponse] = useState<AccountsResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = allAccountsResponse.page.size;
-  const accounts = allAccountsResponse.content.slice(
-    currentPage * pageSize,
-    (currentPage + 1) * pageSize
-  );
+  const pageSize = 6;
 
   const [showModal, setShowModal] = useState(false);
   const [currency, setCurrency] = useState<"RUB" | "USD">("RUB");
-  const [initialDeposit, setInitialDeposit] = useState<string>("")
-
-  const handleCloseModal = () => setShowModal(false);
-  const handleOpenModal = () => setShowModal(true);
-
-  const handleCreateAccount = () => {
-    console.log("Создан счёт:", { currency, initialDeposit });
-    handleCloseModal();
-  };
-
+  const [initialDeposit, setInitialDeposit] = useState<string>("");
 
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [depositAmount, setDepositAmount] = useState<string>("");
 
-  const handleOpenDepositModal = (accountId: string) => {
-    setSelectedAccountId(accountId);
-    setDepositAmount("");
-    setShowDepositModal(true);
-  };
-
-  const handleCloseDepositModal = () => {
-    setShowDepositModal(false);
-    setSelectedAccountId(null);
-  };
-
-  const handleDeposit = () => {
-    console.log(`POST /accounts/${selectedAccountId}/deposit`);
-    handleCloseDepositModal();
-  };
-
-
-  const handleCloseAccount = (accountId: string) => {
-    console.log(`DELETE /accounts/${accountId}`);
-  };
-
-
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
 
-  const handleOpenWithdrawModal = (accountId: string) => {
-    setSelectedAccountId(accountId);
-    setWithdrawAmount("");
-    setShowWithdrawModal(true);
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const data = await fetchAccounts(currentPage, pageSize);
+        setAccountsResponse(data);
+      } catch (err) {
+        console.error("Ошибка загрузки счетов:", err);
+      }
+    };
+    loadAccounts();
+  }, [currentPage]);
+
+  const accounts = accountsResponse?.content ?? [];
+
+  const handleCreateAccount = async () => {
+    try {
+      await createAccount(currency, Number(initialDeposit) || 0);
+      setShowModal(false);
+      setCurrency("RUB");
+      setInitialDeposit("");
+      const data = await fetchAccounts(currentPage, pageSize);
+      setAccountsResponse(data);
+    } catch (err) {
+      console.error("Ошибка при создании счета:", err);
+    }
   };
 
-  const handleCloseWithdrawModal = () => setShowWithdrawModal(false);
+  const handleDeposit = async () => {
+    if (!selectedAccountId) return;
+    try {
+      await depositToAccount(selectedAccountId, Number(depositAmount) || 0);
+      setShowDepositModal(false);
+      setDepositAmount("");
+      const data = await fetchAccounts(currentPage, pageSize);
+      setAccountsResponse(data);
+    } catch (err) {
+      console.error("Ошибка при депозите:", err);
+    }
+  };
 
-  const handleWithdraw = () => {
-    console.log(`POST /accounts/${selectedAccountId}/withdraw`);
-    handleCloseWithdrawModal();
+  const handleWithdraw = async () => {
+    if (!selectedAccountId) return;
+    try {
+      await withdrawFromAccount(selectedAccountId, Number(withdrawAmount) || 0);
+      setShowWithdrawModal(false);
+      setWithdrawAmount("");
+      const data = await fetchAccounts(currentPage, pageSize);
+      setAccountsResponse(data);
+    } catch (err) {
+      console.error("Ошибка при снятии:", err);
+    }
+  };
+
+  const handleCloseAccount = async (accountId: string) => {
+    try {
+      await closeAccount(accountId);
+      const data = await fetchAccounts(currentPage, pageSize);
+      setAccountsResponse(data);
+    } catch (err) {
+      console.error("Ошибка при закрытии счета:", err);
+    }
   };
 
   return (
     <>
       <CreateAccountModal
         show={showModal}
-        onClose={handleCloseModal}
+        onClose={() => setShowModal(false)}
         currency={currency}
         setCurrency={setCurrency}
         initialDeposit={initialDeposit}
@@ -123,7 +103,7 @@ export const AccountsPage = () => {
 
       <DepositModal
         show={showDepositModal}
-        onClose={handleCloseDepositModal}
+        onClose={() => setShowDepositModal(false)}
         amount={depositAmount}
         setAmount={setDepositAmount}
         onSubmit={handleDeposit}
@@ -131,7 +111,7 @@ export const AccountsPage = () => {
 
       <WithdrawModal
         show={showWithdrawModal}
-        onClose={handleCloseWithdrawModal}
+        onClose={() => setShowWithdrawModal(false)}
         amount={withdrawAmount}
         setAmount={setWithdrawAmount}
         onSubmit={handleWithdraw}
@@ -139,16 +119,14 @@ export const AccountsPage = () => {
 
       <Container className="py-5">
         <Row className="mb-4">
-          <Col>
-            <h2>Мои счета</h2>
-          </Col>
+          <Col><h2>Мои счета</h2></Col>
           <Col className="text-end">
-            <Button variant="success" onClick={handleOpenModal}>+ Открыть новый счёт</Button>
+            <Button variant="success" onClick={() => setShowModal(true)}>+ Открыть новый счёт</Button>
           </Col>
         </Row>
 
         <Row>
-          {accounts.map((account) => (
+          {accounts.map(account => (
             <Col md={6} key={account.id} className="mb-4">
               <Card className="shadow-sm">
                 <Card.Body>
@@ -159,24 +137,19 @@ export const AccountsPage = () => {
                   <h4 className="my-3">
                     {account.balance.toLocaleString()} {account.currency}
                   </h4>
-                  <Badge
-                    bg={account.status === "ACTIVE" ? "success" : "secondary"}
-                    className="mb-3"
-                  >
+                  <Badge bg={account.status === "ACTIVE" ? "success" : "secondary"} className="mb-3">
                     {account.status}
                   </Badge>
 
                   <div className="d-flex gap-2 flex-wrap">
-                    <Button size="sm" variant="primary" onClick={() => handleOpenDepositModal(account.id)} disabled={account.status === "CLOSED"}>Внести</Button>
-                    <Button size="sm" variant="warning" onClick={() => handleOpenWithdrawModal(account.id)} disabled={account.status === "CLOSED"}>Снять</Button>
+                    <Button size="sm" variant="primary" onClick={() => { setSelectedAccountId(account.id); setDepositAmount(""); setShowDepositModal(true); }} disabled={account.status === "CLOSED"}>Внести</Button>
+                    <Button size="sm" variant="warning" onClick={() => { setSelectedAccountId(account.id); setWithdrawAmount(""); setShowWithdrawModal(true); }} disabled={account.status === "CLOSED"}>Снять</Button>
                     <Button size="sm" variant="info" onClick={() => navigate(`/accounts/${account.id}/transactions`)}>История</Button>
                     <Button
                       size="sm"
                       variant="danger"
                       onClick={() => {
-                        if (window.confirm("Вы уверены, что хотите закрыть этот счет?")) {
-                          handleCloseAccount(account.id);
-                        }
+                        if (window.confirm("Вы уверены, что хотите закрыть этот счет?")) handleCloseAccount(account.id);
                       }}
                       disabled={account.status === "CLOSED"}
                     >
@@ -192,23 +165,13 @@ export const AccountsPage = () => {
         <Row className="mt-4">
           <Col className="d-flex justify-content-center">
             <Pagination>
-              <Pagination.Prev
-                disabled={currentPage === 0}
-                onClick={() => setCurrentPage(currentPage - 1)}
-              />
-              {Array.from({ length: allAccountsResponse.page.totalPages }, (_, i) => (
-                <Pagination.Item
-                  key={i}
-                  active={i === currentPage}
-                  onClick={() => setCurrentPage(i)}
-                >
+              <Pagination.Prev disabled={currentPage === 0} onClick={() => setCurrentPage(prev => prev - 1)} />
+              {Array.from({ length: accountsResponse?.page.totalPages ?? 0 }, (_, i) => (
+                <Pagination.Item key={i} active={i === currentPage} onClick={() => setCurrentPage(i)}>
                   {i + 1}
                 </Pagination.Item>
               ))}
-              <Pagination.Next
-                disabled={currentPage === allAccountsResponse.page.totalPages - 1}
-                onClick={() => setCurrentPage(currentPage + 1)}
-              />
+              <Pagination.Next disabled={currentPage === (accountsResponse?.page.totalPages ?? 1) - 1} onClick={() => setCurrentPage(prev => prev + 1)} />
             </Pagination>
           </Col>
         </Row>

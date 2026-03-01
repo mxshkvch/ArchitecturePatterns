@@ -1,62 +1,26 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Container, Table, Pagination, Spinner } from "react-bootstrap";
-
-type Transaction = {
-  id: string;
-  accountId: string;
-  type: "DEPOSIT" | "WITHDRAW";
-  amount: number;
-  description: string;
-  timestamp: string;
-  balanceAfter: number;
-};
-
-type TransactionsResponse = {
-  content: Transaction[];
-  page: {
-    page: number;
-    size: number;
-    totalElements: number;
-    totalPages: number;
-  };
-};
+import { getTransactions } from "../../shared/lib/api/transactionsHistory";
+import type { Transaction } from "../../shared/lib/api/transactionsHistory";
 
 export const AccountTransactionsPage = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 10;
+  const pageSize = 6;
   const [totalPages, setTotalPages] = useState(0);
 
   const fetchTransactions = async (page: number) => {
     if (!accountId) return;
     setLoading(true);
-
     try {
-      const data: TransactionsResponse = {
-        content: Array.from({ length: 10 }, (_, i) => ({
-          id: `txn-${page * 10 + i + 1}`,
-          accountId: accountId,
-          type: i % 2 === 0 ? "DEPOSIT" : "WITHDRAW",
-          amount: (i + 1) * 100,
-          description: `Операция ${i + 1}`,
-          timestamp: new Date(Date.now() - i * 86400000).toISOString(),
-          balanceAfter: 1000 + (i + 1) * 100,
-        })),
-        page: {
-          page,
-          size: pageSize,
-          totalElements: 50,
-          totalPages: 5,
-        },
-      };
-
+      const data = await getTransactions(accountId, page, pageSize);
       setTransactions(data.content);
       setTotalPages(data.page.totalPages);
     } catch (error) {
-      console.error("Ошибка при загрузке транзакций", error);
+      console.error("Ошибка при загрузке транзакций:", error);
     } finally {
       setLoading(false);
     }

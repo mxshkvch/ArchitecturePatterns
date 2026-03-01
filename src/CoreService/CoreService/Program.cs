@@ -89,6 +89,8 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.UseCors();
+
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
