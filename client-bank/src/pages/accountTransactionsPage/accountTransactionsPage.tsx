@@ -1,26 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Container, Table, Pagination, Spinner } from "react-bootstrap";
-
-type Transaction = {
-  id: string;
-  accountId: string;
-  type: "DEPOSIT" | "WITHDRAWAL";
-  amount: number;
-  description: string;
-  timestamp: string;
-  balanceAfter: number;
-};
-
-type TransactionsResponse = {
-  content: Transaction[];
-  page: {
-    page: number;
-    size: number;
-    totalElements: number;
-    totalPages: number;
-  };
-};
+import { getTransactions } from "../../shared/lib/api/transactionsHistory";
+import type { Transaction } from "../../shared/lib/api/transactionsHistory";
 
 export const AccountTransactionsPage = () => {
   const { accountId } = useParams<{ accountId: string }>();
@@ -33,29 +15,12 @@ export const AccountTransactionsPage = () => {
   const fetchTransactions = async (page: number) => {
     if (!accountId) return;
     setLoading(true);
-
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(
-        `http://localhost:5000/api/accounts/${accountId}/transactions?page=${page}&size=${pageSize}`,
-        {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const text = await response.text();
-        console.error("Ошибка при загрузке транзакций:", text);
-        return;
-      }
-
-      const data: TransactionsResponse = await response.json();
+      const data = await getTransactions(accountId, page, pageSize);
       setTransactions(data.content);
       setTotalPages(data.page.totalPages);
     } catch (error) {
-      console.error("Ошибка сети при загрузке транзакций:", error);
+      console.error("Ошибка при загрузке транзакций:", error);
     } finally {
       setLoading(false);
     }
