@@ -17,6 +17,16 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -133,6 +143,8 @@ app.UseExceptionHandler(errorApp =>
         });
     });
 });
+
+app.UseCors();
 
 app.UseSwagger();
 app.UseSwaggerUI();

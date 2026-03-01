@@ -1,0 +1,3 @@
+﻿CREATE DATABASE "MyDb";
+CREATE DATABASE "CreditService";
+CREATE DATABASE "UserService";
