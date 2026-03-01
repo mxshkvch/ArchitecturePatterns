@@ -1,0 +1,87 @@
+﻿version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: bank_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  coreservice:
+    build:
+      context: .
+      dockerfile: src/CoreService/Dockerfile
+    container_name: bank_coreservice
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=MyDb;Username=postgres;Password=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  userservice:
+    build:
+      context: .
+      dockerfile: src/UserService/Dockerfile
+    container_name: bank_userservice
+    ports:
+      - "60882:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=UserService;Username=postgres;Password=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  creditservice:
+    build:
+      context: .
+      dockerfile: src/CreditService/Dockerfile
+    container_name: bank_creditservice
+    ports:
+      - "5107:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=CreditService;Username=postgres;Password=postgres
+      - Services__UserServiceUrl=http://userservice:8080/
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  client-bank:
+    build:
+      context: .
+      dockerfile: client-bank/Dockerfile
+    container_name: bank_client
+    ports:
+      - "3000:80"
+    depends_on:
+      - authservice
+      - coreservice
+
+  staff-service:
+    build:
+      context: .
+      dockerfile: staff-service/Dockerfile
+    container_name: bank_staff
+    ports:
+      - "3001:80"
+    depends_on:
+      - userservice
+      - creditservice
+
+volumes:
+  postgres_data:
