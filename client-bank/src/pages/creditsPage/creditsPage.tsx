@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Container, Row, Col, Card, Badge, Pagination, Button } from "react-bootstrap";
 import { PayCreditModal } from "../../features/credits/payCreditModal"
+import { ApplyCreditModal } from "../../features/credits/applyCreditModal";
 
 type Credit = {
   id: string;
@@ -89,13 +90,40 @@ export const CreditsPage = () => {
     handleCloseModal();
   };
 
+
+  const [showApplyModal, setShowApplyModal] = useState(false);
+
+  const handleApplyCredit = (tariffId: string, amount: number, term: number) => {
+    console.log("Оформлен кредит с тарифом", tariffId, "сумма", amount, "срок", term);
+  };
+
+
   const credits = creditsResponse.content;
 
   return (
     <Container className="py-5">
+
+      <PayCreditModal
+        show={showModal}
+        onClose={handleCloseModal}
+        amount={amount}
+        setAmount={setAmount}
+        onSubmit={handlePay}
+        maxAmount={selectedCredit?.remainingAmount}
+      />   
+
+      <ApplyCreditModal
+        show={showApplyModal}
+        onClose={() => setShowApplyModal(false)}
+        onSubmit={handleApplyCredit}
+      /> 
+
       <Row className="mb-4">
         <Col>
-          <h2>Мои кредиты</h2>
+            <h2>Мои кредиты</h2>
+        </Col>
+        <Col className="text-end">
+            <Button variant="success" onClick={() => setShowApplyModal(true)}>Взять кредит</Button>
         </Col>
       </Row>
 
@@ -137,15 +165,6 @@ export const CreditsPage = () => {
             </Col>
         ))}
         </Row>
-
-      <PayCreditModal
-        show={showModal}
-        onClose={handleCloseModal}
-        amount={amount}
-        setAmount={setAmount}
-        onSubmit={handlePay}
-        maxAmount={selectedCredit?.remainingAmount}
-      />    
 
       <Row className="mt-4">
         <Col className="d-flex justify-content-center">
