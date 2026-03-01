@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -19,6 +20,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")
     ));
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 byte[] key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null"));
 
@@ -47,6 +58,35 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "–í–≤–µ–¥–∏—Ç–µ —Ç–æ–ª—å–∫–æ JWT —Ç–æ–∫–µ–Ω (–±–µ–∑ –ø—Ä–µ—Ñ–∏–∫—Å–∞ Bearer)"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
 var app = builder.Build();
 
 app.UseExceptionHandler(errorApp =>
@@ -63,14 +103,14 @@ app.UseExceptionHandler(errorApp =>
 
         var (statusCode, title) = exception switch
         {
-            ArgumentException => ((int)HttpStatusCode.BadRequest, "ÕÂÍÓÂÍÚÌ˚Â ‰‡ÌÌ˚Â Á‡ÔÓÒ‡"),
-            InvalidOperationException => ((int)HttpStatusCode.Conflict, " ÓÌÙÎËÍÚ ‰‡ÌÌ˚ı"),
-            ForbiddenException => ((int)HttpStatusCode.Forbidden, "ƒÓÒÚÛÔ Á‡ÔÂ˘ÂÌ"),
-            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "–ÂÒÛÒ ÌÂ Ì‡È‰ÂÌ"),
-            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "ƒÓÒÚÛÔ Á‡ÔÂ˘∏Ì"),
-            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Œ¯Ë·Í‡ ‚ÌÂ¯ÌÂ„Ó ÒÂ‚ËÒ‡"),
-            HttpRequestException => ((int)HttpStatusCode.BadGateway, "¬ÌÂ¯ÌËÈ ÒÂ‚ËÒ ÌÂ‰ÓÒÚÛÔÂÌ"),
-            _ => ((int)HttpStatusCode.InternalServerError, "¬ÌÛÚÂÌÌˇˇ Ó¯Ë·Í‡ ÒÂ‚Â‡")
+            ArgumentException => ((int)HttpStatusCode.BadRequest, "–ù–µ–∫–æ—Ä—Ä–µ–∫—Ç–Ω—ã–µ –¥–∞–Ω–Ω—ã–µ –∑–∞–ø—Ä–æ—Å–∞"),
+            InvalidOperationException => ((int)HttpStatusCode.Conflict, "–ö–æ–Ω—Ñ–ª–∏–∫—Ç –¥–∞–Ω–Ω—ã—Ö"),
+            ForbiddenException => ((int)HttpStatusCode.Forbidden, "–î–æ—Å—Ç—É–ø –∑–∞–ø—Ä–µ—â–µ–Ω"),
+            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "–†–µ—Å—É—Ä—Å –Ω–µ –Ω–∞–π–¥–µ–Ω"),
+            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "–î–æ—Å—Ç—É–ø –∑–∞–ø—Ä–µ—â—ë–Ω"),
+            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "–û—à–∏–±–∫–∞ –≤–Ω–µ—à–Ω–µ–≥–æ —Å–µ—Ä–≤–∏—Å–∞"),
+            HttpRequestException => ((int)HttpStatusCode.BadGateway, "–í–Ω–µ—à–Ω–∏–π —Å–µ—Ä–≤–∏—Å –Ω–µ–¥–æ—Å—Ç—É–ø–µ–Ω"),
+            _ => ((int)HttpStatusCode.InternalServerError, "–í–Ω—É—Ç—Ä–µ–Ω–Ω—è—è –æ—à–∏–±–∫–∞ —Å–µ—Ä–≤–µ—Ä–∞")
         };
 
         context.Response.Clear();
@@ -86,6 +126,11 @@ app.UseExceptionHandler(errorApp =>
         });
     });
 });
+
+app.UseCors();
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseAuthentication();
 app.UseAuthorization();
