@@ -82,11 +82,40 @@ export const CreditsPage = () => {
     setAmount("");
   };
 
-  const handlePay = () => {
-    if (!selectedCredit) return;
-    console.log("Погашение кредита:", { CreditId: selectedCredit.id, Amount: amount });
+  const handlePay = async () => {
+  if (!selectedCredit) return;
+  const numAmount = Number(amount);
+  if (numAmount <= 0) {
+    alert("Введите сумму погашения больше 0");
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem("accessToken");
+    await axios.post(
+      `http://localhost:5107/credits/${selectedCredit.id}/pay`,
+      { amount: numAmount },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    alert("Платёж успешно проведён!");
     handleCloseModal();
-  };
+    setCreditsResponse((prev) => ({
+      ...prev,
+      content: prev.content.map((c) =>
+        c.id === selectedCredit.id
+          ? { ...c, remainingAmount: c.remainingAmount - numAmount }
+          : c
+      ),
+    }));
+  } catch (err) {
+    console.error(err);
+    alert("Ошибка при проведении платежа");
+  }
+};
 
   const handleApplyCredit = (tariffId: string, amount: number, term: number) => {
     console.log("Оформлен кредит с тарифом", tariffId, "сумма", amount, "срок", term);
