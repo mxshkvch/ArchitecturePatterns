@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AuthService Working</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer;
+            margin: 5px;
+        }
+        pre { 
+            background: #1e1e1e; 
+            color: #fff; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .success { border-left: 4px solid #4CAF50; }
+        .error { border-left: 4px solid #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>🔐 AuthService Login Test</h2>
+            
+            <div style="margin: 20px 0;">
+                <button onclick="testOptions()">1. Тест OPTIONS</button>
+                <button onclick="testLogin()">2. Тест Login</button>
+                <button onclick="curlCommand()">3. Показать curl</button>
+            </div>
+
+            <div>
+                <h3>Данные для входа:</h3>
+                <p>Email: <strong>Viterbig@mail.ru</strong></p>
+                <p>Password: <strong>string</strong></p>
+            </div>
+
+            <pre id="output">Готов к тестированию...</pre>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:60882/api/auth/login';
+        const output = document.getElementById('output');
+
+        async function testOptions() {
+            output.innerHTML = '⏳ Отправка OPTIONS запроса...\n';
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'content-type'
+                    }
+                });
+                
+                let result = `✅ OPTIONS запрос успешен!\n\n`;
+                result += `Статус: ${response.status}\n\n`;
+                result += `Заголовки ответа:\n`;
+                
+                response.headers.forEach((value, key) => {
+                    result += `${key}: ${value}\n`;
+                });
+                
+                output.innerHTML = result;
+                output.className = 'success';
+                
+            } catch (error) {
+                output.innerHTML = `❌ Ошибка: ${error.message}`;
+                output.className = 'error';
+            }
+        }
+
+        async function testLogin() {
+            output.innerHTML = '⏳ Отправка POST запроса...\n';
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'Viterbig@mail.ru',
+                        password: 'string'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    output.innerHTML = `✅ УСПЕХ!\n\n`;
+                    output.innerHTML += `Токен получен:\n${data.token}`;
+                    output.className = 'success';
+                } else {
+                    output.innerHTML = `❌ Ошибка сервера:\n${JSON.stringify(data, null, 2)}`;
+                    output.className = 'error';
+                }
+                
+            } catch (error) {
+                output.innerHTML = `❌ Ошибка: ${error.message}\n\n`;
+                output.innerHTML += `Origin: ${window.location.origin}\n`;
+                output.innerHTML += `URL: ${API_URL}`;
+                output.className = 'error';
+            }
+        }
+
+        function curlCommand() {
+            output.innerHTML = `Команда curl для проверки:\n\n`;
+            output.innerHTML += `curl -X OPTIONS ${API_URL} \\\n`;
+            output.innerHTML += `  -H "Origin: ${window.location.origin}" \\\n`;
+            output.innerHTML += `  -H "Access-Control-Request-Method: POST" \\\n`;
+            output.innerHTML += `  -v\n\n`;
+            output.innerHTML += `Ожидаемый успешный ответ: HTTP/1.1 200 OK\n`;
+            output.innerHTML += `Сейчас получаем: HTTP/1.1 405 Method Not Allowed`;
+        }
+
+        // Автоматический тест при загрузке
+        testOptions();
+    </script>
+</body>
+</html>
