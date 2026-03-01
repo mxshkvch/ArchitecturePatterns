@@ -1,12 +1,12 @@
-import axios from "axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Row, Col, Form, Button, Card, Alert, Spinner } from "react-bootstrap";
+import { login } from "../../shared/lib/api/login";
+import type { LoginRequest } from "../../shared/lib/api/login";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState<LoginRequest>({ email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,20 +20,8 @@ export const LoginPage = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        "http://localhost:60882/api/auth/login",
-        {
-          email: form.email,
-          password: form.password
-        },
-        {
-          headers: {
-            "Content-Type": "application/json"
-          },
-        }
-      );
-
-      localStorage.setItem("accessToken", response.data.token);
+      const data = await login(form);
+      localStorage.setItem("accessToken", data.token);
       navigate("/accounts");
     } catch (err: any) {
       if (err.response) {
@@ -41,6 +29,7 @@ export const LoginPage = () => {
       } else {
         setError("Сервер недоступен или CORS ошибка");
       }
+    } finally {
       setLoading(false);
     }
   };

@@ -1,4 +1,5 @@
-import axios from "axios";
+import { register } from "../../shared/lib/api/reg";
+import type { RegisterRequest } from "../../shared/lib/api/reg";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Container, Row, Col, Form, Button, Card, Alert, Spinner } from "react-bootstrap";
@@ -18,48 +19,28 @@ export const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
-  e.preventDefault();
-  setError(null);
-  setLoading(true);
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
-  try {
-    const response = await axios.post(
-      "http://localhost:60882/api/auth/register",
-      {
-        email: form.email,
-        password: form.password,
-        role: "CLIENT",
-        firstName: form.firstName,
-        lastName: form.lastName,
-        phone: form.phone,
-      }
-    );
+    const payload: RegisterRequest = { ...form, role: "CLIENT" };
 
-    if (response.data?.accessToken) {
-      localStorage.setItem("accessToken", response.data.accessToken);
+    try {
+      const data = await register(payload);
+      localStorage.setItem("accessToken", data.accessToken);
+      navigate("/accounts");
+    } catch (err: any) {
+      if (err.response?.status === 400) setError("Некорректные данные");
+      else if (err.response?.status === 409) setError("Пользователь уже существует");
+      else setError("Ошибка регистрации");
+    } finally {
+      setLoading(false);
     }
-
-    navigate("/accounts");
-  } catch (err: any) {
-    if (err.response?.status === 400) {
-      setError("Некорректные данные");
-    } else if (err.response?.status === 409) {
-      setError("Пользователь уже существует");
-    } else {
-      setError("Ошибка регистрации");
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
   return (
     <Container className="vh-100 d-flex align-items-center justify-content-center">
         <Row className="w-100">
