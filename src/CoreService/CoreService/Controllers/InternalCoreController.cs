@@ -24,7 +24,7 @@ public class InternalCoreController : ControllerBase
         CancellationToken cancellationToken)
     {
         var accountId = await _dbContext.Accounts
-            .Where(a => a.UserId == userId)
+            .Where(a => a.UserId == userId && a.Status == 0)
             .Select(a => a.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
