@@ -41,4 +41,52 @@ public class InternalCoreController : ControllerBase
             AccountId = accountId
         });
     }
+
+    [HttpPost("{userId}/account/pay")]
+    public async Task<ActionResult<bool>> PayUserAccount(
+        Guid userId,
+        [FromQuery] Guid accountId,
+        [FromQuery] double paymentAmount,
+        CancellationToken cancellationToken)
+    {
+
+        var account = await _dbContext.Accounts.Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountId).FirstOrDefaultAsync(cancellationToken);
+
+        if (account == null)//если счет закрылся - ищем другой счет
+        {
+            Guid accountIdNew = await _dbContext.Accounts
+            .Where(a => a.UserId == userId && a.Status == 0 && a.Balance >= (decimal)paymentAmount)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+            if (accountIdNew == Guid.Empty)
+            {
+                return Ok(false);
+            }
+
+            var accountNew = await _dbContext.Accounts.Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountIdNew).FirstOrDefaultAsync(cancellationToken);
+
+            if (account.Balance < (decimal)paymentAmount)
+            {
+                return Ok(false);//баланс нулевой - значит списываться ничего не будет
+            }
+
+            account.Balance -= (decimal)paymentAmount;
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return Ok(true);
+        }
+
+        if (account.Balance < (decimal)paymentAmount)
+        {
+            return Ok(false);//баланс нулевой - значит списываться ничего не будет
+        }
+
+        account.Balance -= (decimal)paymentAmount;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(true);
+    }
 }

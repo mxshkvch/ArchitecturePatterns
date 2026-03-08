@@ -42,7 +42,7 @@ namespace CreditService.Services
             return await BuildTariffResponse(query, page, size);
         }
 
-        public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)//account
+        public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)//account+
         {
             if (request == null)
                 throw new ArgumentException("Request is null");
@@ -86,7 +86,7 @@ namespace CreditService.Services
             return credit;
         }
 
-        public async Task<CreditsResponse> GetMyCredits(int page, int size)//check account
+        public async Task<CreditsResponse> GetMyCredits(int page, int size)//check account+
         {
             ValidatePagination(page, size);
             var currentUser = await GetCurrentUserAsync();
@@ -137,6 +137,18 @@ namespace CreditService.Services
 
             if (request.amount > credit.remainingAmount)
                 throw new InvalidOperationException("Payment amount exceeds remaining credit");
+
+            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, CancellationToken.None);
+
+            if (accountId == _FAILED_CORE)
+                throw new InvalidOperationException("Account does not exist");
+
+            bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(currentUser.Id, accountId, request.amount, CancellationToken.None);
+
+            if (!isPaid)
+            {
+                throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
+            }
 
             credit.remainingAmount -= request.amount;
 
