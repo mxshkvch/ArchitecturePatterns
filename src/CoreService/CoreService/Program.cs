@@ -57,85 +57,65 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 
-builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen(options =>
-//{
-//    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-//    {
-//        Name = "Authorization",
-//        Type = SecuritySchemeType.Http,
-//        Scheme = "bearer",
-//        BearerFormat = "JWT",
-//        In = ParameterLocation.Header,
-//        Description = "Введите только JWT токен (без префикса Bearer)"
-//    });
+var app = builder.Build();
 
-//    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+app.UseRouting();
+
+
+app.UseCors();
+
+//app.UseExceptionHandler(errorApp =>
+//{
+//    errorApp.Run(async context =>
 //    {
+//        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+//        if (exception is null)
 //        {
-//            new OpenApiSecurityScheme
-//            {
-//                Reference = new OpenApiReference
-//                {
-//                    Type = ReferenceType.SecurityScheme,
-//                    Id = "Bearer"
-//                }
-//            },
-//            Array.Empty<string>()
+//            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+//            return;
 //        }
+
+//        var (statusCode, title) = exception switch
+//        {
+//            ArgumentException => ((int)HttpStatusCode.BadRequest, "Некорректные данные запроса"),
+//            InvalidOperationException => ((int)HttpStatusCode.Conflict, "Конфликт данных"),
+//            ForbiddenException => ((int)HttpStatusCode.Forbidden, "Доступ запрещен"),
+//            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Ресурс не найден"),
+//            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Доступ запрещён"),
+//            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Ошибка внешнего сервиса"),
+//            HttpRequestException => ((int)HttpStatusCode.BadGateway, "Внешний сервис недоступен"),
+//            _ => ((int)HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера")
+//        };
+
+//        context.Response.Clear();
+//        context.Response.StatusCode = statusCode;
+//        context.Response.ContentType = "application/problem+json";
+
+//        await context.Response.WriteAsJsonAsync(new
+//        {
+//            title,
+//            status = statusCode,
+//            detail = exception.Message,
+//            traceId = context.TraceIdentifier
+//        });
 //    });
 //});
 
-var app = builder.Build();
+//app.UseCors();
 
-app.UseCors();
-
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-
-        if (exception is null)
-        {
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-            return;
-        }
-
-        var (statusCode, title) = exception switch
-        {
-            ArgumentException => ((int)HttpStatusCode.BadRequest, "Некорректные данные запроса"),
-            InvalidOperationException => ((int)HttpStatusCode.Conflict, "Конфликт данных"),
-            ForbiddenException => ((int)HttpStatusCode.Forbidden, "Доступ запрещен"),
-            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Ресурс не найден"),
-            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Доступ запрещён"),
-            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Ошибка внешнего сервиса"),
-            HttpRequestException => ((int)HttpStatusCode.BadGateway, "Внешний сервис недоступен"),
-            _ => ((int)HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера")
-        };
-
-        context.Response.Clear();
-        context.Response.StatusCode = statusCode;
-        context.Response.ContentType = "application/problem+json";
-
-        await context.Response.WriteAsJsonAsync(new
-        {
-            title,
-            status = statusCode,
-            detail = exception.Message,
-            traceId = context.TraceIdentifier
-        });
-    });
-});
-
-app.UseCors();
-
-app.UseSwagger();
-app.UseSwaggerUI();
+//app.UseSwagger();
+//app.UseSwaggerUI();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+var scope = app.Services.CreateScope();
+
+var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+db.Database.Migrate();
 
 await app.RunAsync();

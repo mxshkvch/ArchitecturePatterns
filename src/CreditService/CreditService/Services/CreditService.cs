@@ -22,11 +22,13 @@ namespace CreditService.Services
         public CreditService(
             CreditDbContext context,
             IHttpContextAccessor httpContextAccessor,
-            IUserServiceClient userServiceClient)
+            IUserServiceClient userServiceClient,
+            ICoreServiceClient coreServiceClient)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _httpContextAccessor = httpContextAccessor;
             _userServiceClient = userServiceClient;
+            _coreServiceClient = coreServiceClient;
         }
 
         public async Task<CreditTariffResponse> GetAvailableTarrifs(int page, int size)
@@ -40,7 +42,7 @@ namespace CreditService.Services
             return await BuildTariffResponse(query, page, size);
         }
 
-        public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)
+        public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)//account
         {
             if (request == null)
                 throw new ArgumentException("Request is null");
@@ -75,7 +77,7 @@ namespace CreditService.Services
                 status = StatusCredit.ACTIVE,
                 startDate = DateTime.UtcNow,
                 endDate = DateTime.UtcNow.AddDays(90),
-                accountId = accountId
+                accountId = accountId//
             };
 
             _context.Credits.Add(credit);
@@ -84,7 +86,7 @@ namespace CreditService.Services
             return credit;
         }
 
-        public async Task<CreditsResponse> GetMyCredits(int page, int size)
+        public async Task<CreditsResponse> GetMyCredits(int page, int size)//check account
         {
             ValidatePagination(page, size);
             var currentUser = await GetCurrentUserAsync();
@@ -113,7 +115,7 @@ namespace CreditService.Services
             return credit;
         }
 
-        public async Task PayCreditById(CreditPaymentRequest request, Guid creditId)
+        public async Task PayCreditById(CreditPaymentRequest request, Guid creditId)//pay need
         {
             if (request == null)
                 throw new ArgumentException("Request is null");
