@@ -16,6 +16,8 @@ namespace CreditService.Services
         private readonly CreditDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IUserServiceClient _userServiceClient;
+        private readonly ICoreServiceClient _coreServiceClient;
+        public readonly Guid _FAILED_CORE = Guid.Parse("00000000-000b-0000-0000-000000000000");
 
         public CreditService(
             CreditDbContext context,
@@ -57,6 +59,11 @@ namespace CreditService.Services
             if (tariff.status != StatusCredit.ACTIVE)
                 throw new InvalidOperationException("Tariff is not active");
 
+            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, CancellationToken.None);
+
+            if (accountId == _FAILED_CORE)
+                throw new InvalidOperationException("Account does not exist");
+
             var credit = new Credit
             {
                 Id = Guid.NewGuid(),
@@ -68,6 +75,7 @@ namespace CreditService.Services
                 status = StatusCredit.ACTIVE,
                 startDate = DateTime.UtcNow,
                 endDate = DateTime.UtcNow.AddDays(90),
+                accountId = accountId
             };
 
             _context.Credits.Add(credit);
