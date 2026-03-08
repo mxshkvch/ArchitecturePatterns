@@ -115,7 +115,7 @@ namespace CreditService.Services
             return credit;
         }
 
-        public async Task PayCreditById(CreditPaymentRequest request, Guid creditId)//pay need
+        public async Task PayCreditById(CreditPaymentRequest request, Guid creditId)//pay need+
         {
             if (request == null)
                 throw new ArgumentException("Request is null");
