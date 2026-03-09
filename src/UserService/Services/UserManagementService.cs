@@ -92,7 +92,7 @@ public sealed class UserManagementService : IUserManagementService
             throw new UnauthorizedAccessException("User not found");
         }
 
-        if (userRole.Value != UserRole.ADMIN)
+        if (userRole.Value == UserRole.CLIENT)
         {
             throw new ForbiddenException("Only admins can access this resource");
         }
