@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const USER_SERVICE_URL = 'https://localhost:60881'; 
+const USER_SERVICE_URL = 'http://localhost:60882'; 
 const CORE_SERVICE_URL = 'http://localhost:5000'; 
 const CREDIT_SERVICE_URL = 'http://localhost:5107'; 
 
