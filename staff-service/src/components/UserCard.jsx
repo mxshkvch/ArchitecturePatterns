@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { updateUserStatus } from '../services/api';
 
@@ -6,6 +6,30 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Функция для проверки, является ли пользователь новым сотрудником/администратором (< 1 дня)
+  const isNewEmployeeOrAdmin = useMemo(() => {
+    // Проверяем, что пользователь сотрудник или администратор
+    const isEmployeeOrAdmin = user.role === 'EMPLOYEE' || user.role === 'ADMIN';
+    
+    if (!isEmployeeOrAdmin) return false;
+    
+    // Проверяем, что аккаунту меньше 1 дня
+    const accountCreationDate = new Date(user.createdAt);
+    const now = new Date();
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    
+    const accountAge = now - accountCreationDate;
+    return accountAge < oneDayInMs;
+  }, [user.role, user.createdAt]);
+
+  // Функция для определения, нужно ли показывать кнопки
+  const shouldShowButtons = useMemo(() => {
+    // Показываем кнопки если:
+    // 1. Пользователь клиент (всегда)
+    // 2. Или сотрудник/админ с аккаунтом младше 1 дня
+    return user.role === 'CLIENT' || isNewEmployeeOrAdmin;
+  }, [user.role, isNewEmployeeOrAdmin]);
 
   const handleCardClick = (e) => {
     if (e.target.closest('button') || e.target.closest('div[style*="confirmDialog"]')) {
@@ -49,6 +73,25 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
   const isBlocked = user.status === 'BLOCKED';
   const isActive = user.status === 'ACTIVE';
 
+  // Определяем текст и стиль для кнопки в зависимости от текущего статуса
+  const getButtonConfig = () => {
+    if (isBlocked) {
+      return {
+        text: isUpdating ? '⏳' : '🔓 Разблокировать',
+        bgColor: '#10b981',
+        title: 'Разблокировать пользователя'
+      };
+    } else {
+      return {
+        text: isUpdating ? '⏳' : '🔒 Заблокировать',
+        bgColor: '#ef4444',
+        title: 'Заблокировать пользователя'
+      };
+    }
+  };
+
+  const buttonConfig = getButtonConfig();
+
   return (
     <div style={styles.card} onClick={handleCardClick}>
       <div style={styles.cardHeader}>
@@ -61,19 +104,23 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
           </h3>
           <p style={styles.userEmail}>{user.email}</p>
         </div>
-        <button
-          onClick={handleStatusToggle}
-          disabled={isUpdating || (!isActive && !isBlocked)}
-          style={{
-            ...styles.statusButton,
-            backgroundColor: isBlocked ? '#10b981' : '#ef4444',
-            opacity: isUpdating ? 0.5 : 1,
-            cursor: isUpdating ? 'wait' : 'pointer'
-          }}
-          title={isBlocked ? 'Разблокировать пользователя' : 'Заблокировать пользователя'}
-        >
-          {isUpdating ? '⏳' : (isBlocked ? '🔓 Разблокировать' : '🔒 Заблокировать')}
-        </button>
+        
+        {/* Отображаем кнопку только если должныShowButtons и статус позволяет */}
+        {shouldShowButtons && (isActive || isBlocked) && (
+          <button
+            onClick={handleStatusToggle}
+            disabled={isUpdating}
+            style={{
+              ...styles.statusButton,
+              backgroundColor: buttonConfig.bgColor,
+              opacity: isUpdating ? 0.5 : 1,
+              cursor: isUpdating ? 'wait' : 'pointer'
+            }}
+            title={buttonConfig.title}
+          >
+            {buttonConfig.text}
+          </button>
+        )}
       </div>
 
       <div style={styles.cardBody}>
@@ -113,6 +160,13 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
           <span style={styles.infoLabel}>📅 Создан:</span>
           <span style={styles.infoValue}>{formatDate(user.createdAt)}</span>
         </div>
+
+        {/* Для отладки - показываем иконку для новых сотрудников/админов */}
+        {isNewEmployeeOrAdmin && (
+          <div style={styles.newBadge}>
+            🆕 Новый сотрудник (менее 1 дня)
+          </div>
+        )}
       </div>
 
       <div style={styles.cardFooter}>
@@ -252,6 +306,15 @@ const styles = {
     color: '#3b82f6',
     fontSize: '0.9em',
     fontWeight: '500'
+  },
+  newBadge: {
+    marginTop: '8px',
+    padding: '4px 8px',
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
+    borderRadius: '4px',
+    fontSize: '0.8em',
+    textAlign: 'center'
   },
   confirmOverlay: {
     position: 'fixed',

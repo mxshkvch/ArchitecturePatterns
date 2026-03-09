@@ -1,13 +1,14 @@
 import React from 'react';
 
 const CreditCard = ({ credit, formatDate, formatCurrency, getStatusColor, getStatusLabel }) => {
+
   return (
     <div style={styles.card}>
       <div style={styles.cardHeader}>
         <div style={styles.creditIcon}>💳</div>
         <div style={styles.creditInfo}>
           <h3 style={styles.creditId}>Кредит #{credit.id.slice(0, 8)}</h3>
-          <p style={styles.userId}>ID пользователя: {credit.userid.slice(0, 8)}...</p>
+          <p style={styles.userId}>ID пользователя: {credit.userId.slice(0, 8)}...</p>
         </div>
         <span style={{
           ...styles.statusBadge,
@@ -48,7 +49,6 @@ const CreditCard = ({ credit, formatDate, formatCurrency, getStatusColor, getSta
 
         <div style={styles.idsSection}>
           <p style={styles.idText}>Счет: {credit.accountId}</p>
-          <p style={styles.idText}>Тариф: {credit.tariffId}</p>
         </div>
       </div>
     </div>

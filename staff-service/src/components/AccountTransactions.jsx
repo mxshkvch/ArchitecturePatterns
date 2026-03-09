@@ -15,28 +15,66 @@ const AccountTransactions = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [pageInfo, setPageInfo] = useState({
-    page: 0,
-    size: 20,
+    page: 1, // Меняем с 0 на 1 (1-индексация)
+    size: 5, // Меняем с 20 на 5
     totalElements: 0,
     totalPages: 0
   });
 
+  // Добавляем эффект для отладки
   useEffect(() => {
-    loadTransactions(0);
+    console.log('Transactions pageInfo изменился:', pageInfo);
+  }, [pageInfo]);
+
+  useEffect(() => {
+    loadTransactions(1); // Меняем с 0 на 1
   }, [accountId, fromDate, toDate]);
 
-  const loadTransactions = async (page = 0) => {
+  const loadTransactions = async (page = 1) => {
     try {
       setLoading(true);
+      console.log('Загружаем транзакции. Параметры:', { 
+        accountId, 
+        page, 
+        size: pageInfo.size,
+        fromDate: fromDate || null, 
+        toDate: toDate || null 
+      });
+      
       const data = await getAccountTransactions(
         accountId, 
         page, 
-        20, 
+        pageInfo.size, // Используем size из state (5)
         fromDate || null, 
         toDate || null
       );
-      setTransactions(data.content || []);
-      setPageInfo(data.page || { page: 0, size: 20, totalElements: 0, totalPages: 0 });
+      
+      console.log('Полученные данные транзакций:', data);
+      
+      if (data && data.content && data.page) {
+        // Формат Spring Page
+        setTransactions(data.content);
+        
+        // API возвращает page с 0-индексацией, поэтому преобразуем
+        setPageInfo({
+          page: data.page.page + 1, // Преобразуем из 0-индексации в 1-индексацию
+          size: data.page.size,
+          totalElements: data.page.totalElements,
+          totalPages: data.page.totalPages
+        });
+        
+        console.log('Установлены транзакции:', data.content.length);
+        console.log('Информация о пагинации (преобразована в 1-индексацию):', {
+          page: data.page.page + 1,
+          size: data.page.size,
+          totalElements: data.page.totalElements,
+          totalPages: data.page.totalPages
+        });
+      } else {
+        console.warn('Неизвестный формат данных транзакций:', data);
+        setTransactions([]);
+      }
+      
       setError(null);
     } catch (err) {
       setError('Не удалось загрузить историю операций');
@@ -47,17 +85,22 @@ const AccountTransactions = () => {
   };
 
   const handlePageChange = (newPage) => {
+    console.log('Смена страницы транзакций на:', newPage);
     loadTransactions(newPage);
   };
 
   const handleDateFilterChange = (newFromDate, newToDate) => {
     setFromDate(newFromDate);
     setToDate(newToDate);
+    // Сбрасываем на первую страницу при изменении фильтров
+    loadTransactions(1);
   };
 
   const handleClearFilters = () => {
     setFromDate('');
     setToDate('');
+    // Сбрасываем на первую страницу при очистке фильтров
+    loadTransactions(1);
   };
 
   const formatDateTime = (dateString) => {
@@ -138,7 +181,7 @@ const AccountTransactions = () => {
       {error ? (
         <div style={styles.errorContainer}>
           <p style={styles.errorText}>{error}</p>
-          <button onClick={() => loadTransactions(0)} style={styles.retryButton}>
+          <button onClick={() => loadTransactions(1)} style={styles.retryButton}>
             Попробовать снова
           </button>
         </div>
@@ -172,29 +215,49 @@ const AccountTransactions = () => {
                 ))}
               </div>
 
+              {/* Отображаем пагинацию только если есть несколько страниц */}
               {pageInfo.totalPages > 1 && (
                 <div style={styles.pagination}>
                   <button
                     onClick={() => handlePageChange(pageInfo.page - 1)}
-                    disabled={pageInfo.page === 0}
+                    disabled={pageInfo.page === 1}
                     style={styles.pageButton}
                   >
                     ←
                   </button>
                   
-                  <span style={styles.pageInfo}>
-                    Страница {pageInfo.page + 1} из {pageInfo.totalPages}
-                  </span>
+                  {/* Отображаем номера страниц */}
+                  <div style={styles.pageNumbers}>
+                    {Array.from({ length: pageInfo.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        style={{
+                          ...styles.pageNumberButton,
+                          ...(pageNum === pageInfo.page ? styles.pageNumberButtonActive : {})
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
                   
                   <button
                     onClick={() => handlePageChange(pageInfo.page + 1)}
-                    disabled={pageInfo.page === pageInfo.totalPages - 1}
+                    disabled={pageInfo.page >= pageInfo.totalPages}
                     style={styles.pageButton}
                   >
                     →
                   </button>
                 </div>
               )}
+
+              {/* Для отладки показываем информацию о пагинации */}
+              <div style={styles.debugInfo}>
+                Текущая страница: {pageInfo.page} из {pageInfo.totalPages}, 
+                Всего операций: {pageInfo.totalElements}, 
+                Операций на странице: {pageInfo.size}
+              </div>
             </>
           )}
         </>
@@ -275,6 +338,10 @@ const styles = {
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
+  pageNumbers: {
+    display: 'flex',
+    gap: '8px'
+  },
   pageButton: {
     padding: '8px 16px',
     backgroundColor: 'white',
@@ -292,6 +359,33 @@ const styles = {
     ':disabled': {
       opacity: 0.5,
       cursor: 'not-allowed'
+    }
+  },
+  pageNumberButton: {
+    minWidth: '40px',
+    height: '40px',
+    padding: '0 8px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    backgroundColor: 'white',
+    color: '#64748b',
+    cursor: 'pointer',
+    fontSize: '0.95em',
+    transition: 'all 0.2s',
+    ':hover': {
+      backgroundColor: '#f8fafc',
+      borderColor: '#3b82f6',
+      color: '#3b82f6'
+    }
+  },
+  pageNumberButtonActive: {
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    borderColor: '#3b82f6',
+    ':hover': {
+      backgroundColor: '#2563eb',
+      color: 'white',
+      borderColor: '#2563eb'
     }
   },
   pageInfo: {
@@ -350,6 +444,15 @@ const styles = {
       borderColor: '#3b82f6',
       color: '#3b82f6'
     }
+  },
+  debugInfo: {
+    marginTop: '20px',
+    padding: '10px',
+    backgroundColor: '#f1f5f9',
+    borderRadius: '8px',
+    color: '#64748b',
+    fontSize: '0.9em',
+    textAlign: 'center'
   }
 };
 

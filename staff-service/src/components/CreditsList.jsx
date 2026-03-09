@@ -10,22 +10,54 @@ const CreditsList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pageInfo, setPageInfo] = useState({
-    page: 0,
-    size: 20,
+    page: 1, // Оставляем 1 (1-индексация)
+    size: 5, // Размер страницы 5
     totalElements: 0,
     totalPages: 0
   });
 
+  // Добавляем эффект для отладки
   useEffect(() => {
-    loadCredits(0);
+    console.log('Credits pageInfo изменился:', pageInfo);
+  }, [pageInfo]);
+
+  useEffect(() => {
+    loadCredits(1); // Загружаем первую страницу (индекс 1)
   }, []);
 
-  const loadCredits = async (page = 0) => {
+  const loadCredits = async (page = 1) => {
     try {
       setLoading(true);
-      const data = await getCredits(page, 20);
-      setCredits(data.content || []);
-      setPageInfo(data.page || { page: 0, size: 20, totalElements: 0, totalPages: 0 });
+      console.log('Загружаем кредиты. Параметры:', { page, size: pageInfo.size });
+      
+      const data = await getCredits(page, pageInfo.size);
+      console.log('Полученные данные кредитов:', data);
+      
+      if (data && data.content && data.page) {
+        // Формат Spring Page
+        setCredits(data.content);
+        
+        // Информация о пагинации находится в data.page
+        // API возвращает page с 0-индексацией, поэтому преобразуем
+        setPageInfo({
+          page: data.page.page , // Преобразуем из 0-индексации в 1-индексацию
+          size: data.page.size,
+          totalElements: data.page.totalElements,
+          totalPages: data.page.totalPages
+        });
+        
+        console.log('Установлены кредиты:', data.content.length);
+        console.log('Информация о пагинации (преобразована в 1-индексацию):', {
+          page: data.page.page ,
+          size: data.page.size,
+          totalElements: data.page.totalElements,
+          totalPages: data.page.totalPages
+        });
+      } else {
+        console.warn('Неизвестный формат данных кредитов:', data);
+        setCredits([]);
+      }
+      
       setError(null);
     } catch (err) {
       setError('Не удалось загрузить список кредитов');
@@ -36,6 +68,7 @@ const CreditsList = () => {
   };
 
   const handlePageChange = (newPage) => {
+    console.log('Смена страницы кредитов на:', newPage);
     loadCredits(newPage);
   };
 
@@ -52,7 +85,7 @@ const CreditsList = () => {
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'RUB',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 2 // Меняем с 5 на 2 для нормального отображения
     }).format(amount || 0);
   };
 
@@ -86,7 +119,7 @@ const CreditsList = () => {
     }
   };
 
-  if (loading && credits.length === 0) {
+  if (loading && credits.length === 0) { // Меняем с === 1 на === 0
     return <LoadingSpinner />;
   }
 
@@ -105,7 +138,7 @@ const CreditsList = () => {
       {error ? (
         <div style={styles.errorContainer}>
           <p style={styles.errorText}>{error}</p>
-          <button onClick={() => loadCredits(0)} style={styles.retryButton}>
+          <button onClick={() => loadCredits(1)} style={styles.retryButton}>
             Попробовать снова
           </button>
         </div>
@@ -130,29 +163,49 @@ const CreditsList = () => {
                 ))}
               </div>
 
+              {/* Отображаем пагинацию только если есть несколько страниц */}
               {pageInfo.totalPages > 1 && (
                 <div style={styles.pagination}>
                   <button
                     onClick={() => handlePageChange(pageInfo.page - 1)}
-                    disabled={pageInfo.page === 0}
+                    disabled={pageInfo.page === 1}
                     style={styles.pageButton}
                   >
                     ←
                   </button>
                   
-                  <span style={styles.pageInfo}>
-                    Страница {pageInfo.page + 1} из {pageInfo.totalPages}
-                  </span>
+                  {/* Отображаем номера страниц */}
+                  <div style={styles.pageNumbers}>
+                    {Array.from({ length: pageInfo.totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        style={{
+                          ...styles.pageNumberButton,
+                          ...(pageNum === pageInfo.page ? styles.pageNumberButtonActive : {})
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
                   
                   <button
                     onClick={() => handlePageChange(pageInfo.page + 1)}
-                    disabled={pageInfo.page === pageInfo.totalPages - 1}
+                    disabled={pageInfo.page >= pageInfo.totalPages}
                     style={styles.pageButton}
                   >
                     →
                   </button>
                 </div>
               )}
+
+              {/* Для отладки показываем информацию о пагинации */}
+              <div style={styles.debugInfo}>
+                Текущая страница: {pageInfo.page} из {pageInfo.totalPages}, 
+                Всего кредитов: {pageInfo.totalElements}, 
+                Кредитов на странице: {pageInfo.size}
+              </div>
             </>
           )}
         </>
@@ -225,6 +278,10 @@ const styles = {
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
+  pageNumbers: {
+    display: 'flex',
+    gap: '8px'
+  },
   pageButton: {
     padding: '8px 16px',
     backgroundColor: 'white',
@@ -242,6 +299,33 @@ const styles = {
     ':disabled': {
       opacity: 0.5,
       cursor: 'not-allowed'
+    }
+  },
+  pageNumberButton: {
+    minWidth: '40px',
+    height: '40px',
+    padding: '0 8px',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    backgroundColor: 'white',
+    color: '#64748b',
+    cursor: 'pointer',
+    fontSize: '0.95em',
+    transition: 'all 0.2s',
+    ':hover': {
+      backgroundColor: '#f8fafc',
+      borderColor: '#3b82f6',
+      color: '#3b82f6'
+    }
+  },
+  pageNumberButtonActive: {
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    borderColor: '#3b82f6',
+    ':hover': {
+      backgroundColor: '#2563eb',
+      color: 'white',
+      borderColor: '#2563eb'
     }
   },
   pageInfo: {
@@ -284,6 +368,15 @@ const styles = {
   emptyText: {
     color: '#64748b',
     fontSize: '1.2em'
+  },
+  debugInfo: {
+    marginTop: '20px',
+    padding: '10px',
+    backgroundColor: '#f1f5f9',
+    borderRadius: '8px',
+    color: '#64748b',
+    fontSize: '0.9em',
+    textAlign: 'center'
   }
 };
 

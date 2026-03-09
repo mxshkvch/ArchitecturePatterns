@@ -1,19 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getUserById, getUserAccounts } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import { getUserAccounts } from '../services/api'; // 👈 Только этот импорт
 import AccountCard from './AccountCard';
 import LoadingSpinner from './LoadingSpinner';
 
-const UserDetail = () => {
+const UserAccounts = () => {
   const { userId } = useParams();
-  const navigate = useNavigate();
   
-  const [user, setUser] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [error, setError] = useState(null);
-  const [accountsError, setAccountsError] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [pageInfo, setPageInfo] = useState({
     page: 0,
@@ -21,47 +17,34 @@ const UserDetail = () => {
     totalElements: 0,
     totalPages: 0
   });
-
-  useEffect(() => {
-    loadUserData();
-  }, [userId]);
-
-  useEffect(() => {
-    if (user) {
-      loadAccounts(0);
-    }
-  }, [user, selectedStatus]);
-
-  const loadUserData = async () => {
+const formatDate = (dateString) => {
+  if (!dateString) return '—';
+  return new Date(dateString).toLocaleDateString('ru-RU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+  // Загрузка счетов
+  const loadAccounts = useCallback(async (page = 0) => {
     try {
       setLoading(true);
-      const userData = await getUserById(userId);
-      setUser(userData);
+      const data = await getUserAccounts(userId, page, 20, selectedStatus || undefined);
+      setAccounts(data.content || []);
+      setPageInfo(data.page || { page: 0, size: 20, totalElements: 0, totalPages: 0 });
       setError(null);
     } catch (err) {
-      setError('Не удалось загрузить информацию о пользователе');
+      setError('Не удалось загрузить счета пользователя');
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, selectedStatus]);
 
-  const loadAccounts = async (page = 0) => {
-    if (!user) return;
-    
-    try {
-      setLoadingAccounts(true);
-      const data = await getUserAccounts(userId, page, 20, selectedStatus || undefined);
-      setAccounts(data.content || []);
-      setPageInfo(data.page || { page: 0, size: 20, totalElements: 0, totalPages: 0 });
-      setAccountsError(null);
-    } catch (err) {
-      setAccountsError('Не удалось загрузить счета пользователя');
-      console.error(err);
-    } finally {
-      setLoadingAccounts(false);
-    }
-  };
+  // Загружаем счета при монтировании и изменении фильтра
+  useEffect(() => {
+    loadAccounts(0);
+  }, [loadAccounts]);
 
   const handleStatusChange = (status) => {
     setSelectedStatus(status);
@@ -71,34 +54,12 @@ const UserDetail = () => {
     loadAccounts(newPage);
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '—';
-    return new Date(dateString).toLocaleDateString('ru-RU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
   const formatCurrency = (amount, currency) => {
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: currency || 'RUB',
       minimumFractionDigits: 2
     }).format(amount || 0);
-  };
-
-  const getRoleLabel = (role) => {
-    switch (role) {
-      case 'CLIENT':
-        return 'Клиент';
-      case 'EMPLOYEE':
-        return 'Сотрудник';
-      case 'ADMIN':
-        return 'Администратор';
-      default:
-        return role;
-    }
   };
 
   const getStatusColor = (status) => {
@@ -116,16 +77,16 @@ const UserDetail = () => {
     }
   };
 
-  if (loading) {
+  if (loading && accounts.length === 0) {
     return <LoadingSpinner />;
   }
 
-  if (error || !user) {
+  if (error) {
     return (
       <div style={styles.errorContainer}>
-        <p style={styles.errorText}>{error || 'Пользователь не найден'}</p>
-        <button onClick={() => navigate('/users')} style={styles.backButton}>
-          Вернуться к списку пользователей
+        <p style={styles.errorText}>{error}</p>
+        <button onClick={() => loadAccounts(0)} style={styles.retryButton}>
+          Попробовать снова
         </button>
       </div>
     );
@@ -133,135 +94,87 @@ const UserDetail = () => {
 
   return (
     <div style={styles.container}>
-      <button onClick={() => navigate('/users')} style={styles.backButton}>
-        ← Назад к списку пользователей
-      </button>
-
-      {/* Информация о пользователе */}
-      <div style={styles.userHeader}>
-        <div style={styles.avatar}>
-          {user.firstName?.[0]}{user.lastName?.[0]}
-        </div>
-        <div style={styles.userInfo}>
-          <h1 style={styles.userName}>
-            {user.firstName} {user.lastName}
-          </h1>
-          <p style={styles.userEmail}>{user.email}</p>
-          
-          <div style={styles.userMeta}>
-            {user.phone && (
-              <span style={styles.metaItem}>📞 {user.phone}</span>
-            )}
-            <span style={{
-              ...styles.roleBadge,
-              backgroundColor: user.role === 'ADMIN' ? '#fee2e2' : 
-                             user.role === 'EMPLOYEE' ? '#dbeafe' : '#dcfce7',
-              color: user.role === 'ADMIN' ? '#991b1b' : 
-                     user.role === 'EMPLOYEE' ? '#1e40af' : '#166534'
-            }}>
-              {getRoleLabel(user.role)}
-            </span>
-            <span style={{
-              ...styles.statusBadge,
-              backgroundColor: getStatusColor(user.status) + '20',
-              color: getStatusColor(user.status)
-            }}>
-              {user.status === 'ACTIVE' ? 'Активен' :
-               user.status === 'INACTIVE' ? 'Неактивен' : 'Заблокирован'}
-            </span>
-          </div>
-          
-          <p style={styles.createdAt}>
-            Зарегистрирован: {formatDate(user.createdAt)}
-          </p>
+      <div style={styles.header}>
+        <h1 style={styles.title}>Счета пользователя</h1>
+        <div style={styles.totalAccounts}>
+          Всего счетов: <strong>{pageInfo.totalElements}</strong>
         </div>
       </div>
 
-      {/* Счета пользователя */}
-      <div style={styles.accountsSection}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>Счета пользователя</h2>
-          <div style={styles.totalAccounts}>
-            Всего счетов: <strong>{pageInfo.totalElements}</strong>
-          </div>
+      {/* Фильтр по статусу счета */}
+      <div style={styles.filterContainer}>
+        <span style={styles.filterLabel}>Статус счета:</span>
+        <div style={styles.buttonGroup}>
+          <button
+            onClick={() => handleStatusChange('')}
+            style={{
+              ...styles.filterButton,
+              ...(selectedStatus === '' ? styles.filterButtonActive : {})
+            }}
+          >
+            Все
+          </button>
+          {['ACTIVE', 'BLOCKED', 'CLOSED'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleStatusChange(status)}
+              style={{
+                ...styles.filterButton,
+                ...(selectedStatus === status ? styles.filterButtonActive : {})
+              }}
+            >
+              {status === 'ACTIVE' ? 'Активные' :
+               status === 'BLOCKED' ? 'Заблокированные' :
+               'Закрытые'}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Фильтр по статусу счета */}
-        <div style={styles.filterContainer}>
-          <span style={styles.filterLabel}>Статус счета:</span>
-          <div style={styles.buttonGroup}>
-            {['', 'ACTIVE', 'BLOCKED', 'CLOSED'].map((status) => (
-              <button
-                key={status || 'all'}
-                onClick={() => handleStatusChange(status)}
-                style={{
-                  ...styles.filterButton,
-                  ...(selectedStatus === status ? styles.filterButtonActive : {})
-                }}
-              >
-                {status === 'ACTIVE' ? 'Активные' :
-                 status === 'BLOCKED' ? 'Заблокированные' :
-                 status === 'CLOSED' ? 'Закрытые' : 'Все'}
-              </button>
+      {accounts.length === 0 ? (
+        <div style={styles.noAccounts}>
+          <p>У пользователя нет счетов</p>
+        </div>
+      ) : (
+        <>
+          <div style={styles.accountsGrid}>
+            {accounts.map((account) => (
+              <AccountCard
+                key={account.id}
+                account={account}
+                formatDate={formatDate} 
+                formatCurrency={formatCurrency}
+                getStatusColor={getStatusColor}
+                userId={userId}
+              />
             ))}
           </div>
-        </div>
 
-        {accountsError ? (
-          <div style={styles.errorMessage}>
-            <p>{accountsError}</p>
-            <button onClick={() => loadAccounts(0)} style={styles.retryButton}>
-              Попробовать снова
-            </button>
-          </div>
-        ) : loadingAccounts ? (
-          <div style={styles.accountsLoading}>
-            <LoadingSpinner />
-          </div>
-        ) : accounts.length === 0 ? (
-          <div style={styles.noAccounts}>
-            <p>У пользователя нет счетов</p>
-          </div>
-        ) : (
-          <>
-            <div style={styles.accountsGrid}>
-              {accounts.map((account) => (
-                <AccountCard
-                  key={account.id}
-                  account={account}
-                  formatDate={formatDate}
-                  formatCurrency={formatCurrency}
-                  getStatusColor={getStatusColor}
-                />
-              ))}
+          {pageInfo.totalPages > 1 && (
+            <div style={styles.pagination}>
+              <button
+                onClick={() => handlePageChange(pageInfo.page - 1)}
+                disabled={pageInfo.page === 0}
+                style={styles.pageButton}
+              >
+                ←
+              </button>
+              
+              <span style={styles.pageInfo}>
+                Страница {pageInfo.page + 1} из {pageInfo.totalPages}
+              </span>
+              
+              <button
+                onClick={() => handlePageChange(pageInfo.page + 1)}
+                disabled={pageInfo.page === pageInfo.totalPages - 1}
+                style={styles.pageButton}
+              >
+                →
+              </button>
             </div>
-
-            {pageInfo.totalPages > 1 && (
-              <div style={styles.pagination}>
-                <button
-                  onClick={() => handlePageChange(pageInfo.page - 1)}
-                  disabled={pageInfo.page === 0}
-                  style={styles.pageButton}
-                >
-                  ←
-                </button>
-                
-                <span style={styles.pageInfo}>
-                  Страница {pageInfo.page + 1} из {pageInfo.totalPages}
-                </span>
-                
-                <button
-                  onClick={() => handlePageChange(pageInfo.page + 1)}
-                  disabled={pageInfo.page === pageInfo.totalPages - 1}
-                  style={styles.pageButton}
-                >
-                  →
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -275,102 +188,20 @@ const styles = {
     backgroundColor: '#f8fafc',
     minHeight: '100vh'
   },
-  backButton: {
-    padding: '10px 20px',
-    backgroundColor: 'white',
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    color: '#64748b',
-    cursor: 'pointer',
-    fontSize: '0.95em',
-    marginBottom: '20px',
-    transition: 'all 0.2s',
-    ':hover': {
-      backgroundColor: '#f8fafc',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
-    }
-  },
-  userHeader: {
-    display: 'flex',
-    gap: '30px',
-    padding: '30px',
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-    marginBottom: '30px'
-  },
-  avatar: {
-    width: '100px',
-    height: '100px',
-    borderRadius: '20px',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '2.5em',
-    fontWeight: 'bold',
-    textTransform: 'uppercase'
-  },
-  userInfo: {
-    flex: 1
-  },
-  userName: {
-    margin: '0 0 10px 0',
-    color: '#1e293b',
-    fontSize: '2.2em',
-    fontWeight: '600'
-  },
-  userEmail: {
-    margin: '0 0 15px 0',
-    color: '#64748b',
-    fontSize: '1.2em'
-  },
-  userMeta: {
-    display: 'flex',
-    gap: '15px',
-    alignItems: 'center',
-    marginBottom: '15px',
-    flexWrap: 'wrap'
-  },
-  metaItem: {
-    color: '#64748b',
-    fontSize: '1em'
-  },
-  roleBadge: {
-    padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '0.9em',
-    fontWeight: '500'
-  },
-  statusBadge: {
-    padding: '6px 12px',
-    borderRadius: '20px',
-    fontSize: '0.9em',
-    fontWeight: '500'
-  },
-  createdAt: {
-    margin: 0,
-    color: '#94a3b8',
-    fontSize: '0.95em'
-  },
-  accountsSection: {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-    padding: '30px'
-  },
-  sectionHeader: {
+  header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '25px'
+    marginBottom: '25px',
+    padding: '20px',
+    backgroundColor: 'white',
+    borderRadius: '16px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
   },
-  sectionTitle: {
+  title: {
     margin: 0,
     color: '#1e293b',
-    fontSize: '1.5em',
+    fontSize: '1.8em',
     fontWeight: '600'
   },
   totalAccounts: {
@@ -386,8 +217,9 @@ const styles = {
     gap: '15px',
     marginBottom: '25px',
     padding: '15px 20px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '12px'
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
   },
   filterLabel: {
     color: '#64748b',
@@ -431,8 +263,9 @@ const styles = {
     gap: '20px',
     marginTop: '20px',
     padding: '20px',
-    backgroundColor: '#f8fafc',
-    borderRadius: '12px'
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
   },
   pageButton: {
     padding: '8px 16px',
@@ -471,11 +304,6 @@ const styles = {
     fontSize: '1.2em',
     marginBottom: '20px'
   },
-  errorMessage: {
-    textAlign: 'center',
-    padding: '40px',
-    color: '#ef4444'
-  },
   retryButton: {
     padding: '10px 20px',
     backgroundColor: '#3b82f6',
@@ -486,15 +314,14 @@ const styles = {
     fontSize: '0.95em',
     marginTop: '10px'
   },
-  accountsLoading: {
-    padding: '40px'
-  },
   noAccounts: {
     textAlign: 'center',
     padding: '60px 20px',
+    backgroundColor: 'white',
+    borderRadius: '16px',
     color: '#64748b',
     fontSize: '1.1em'
   }
 };
 
-export default UserDetail;
+export default UserAccounts;

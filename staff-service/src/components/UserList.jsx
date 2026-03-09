@@ -6,39 +6,45 @@ import RoleFilter from './RoleFilter';
 import LoadingSpinner from './LoadingSpinner';
 import CreateTariffModal from './CreateTariffModal';
 import { createCreditTariff } from '../services/api';
-
+import { useNavigate } from 'react-router-dom';
+import CreateUserModal from './CreateUserModal';
+import { createUser } from '../services/api';
 
 const UserList = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [pageInfo, setPageInfo] = useState({
     page: 0,
-    size: 20,
+    size: 5, // Оставляем 5, так как сервер возвращает по 5 элементов
     totalElements: 0,
     totalPages: 0
   });
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+
+  // Добавляем эффект для отладки
+  useEffect(() => {
+    console.log('pageInfo изменился:', pageInfo);
+  }, [pageInfo]);
 
   const handleUserStatusChange = (userId, newStatus) => {
-  setUsers(prevUsers => 
-    prevUsers.map(user => 
-      user.id === userId 
-        ? { ...user, status: newStatus }
-        : user
-    )
-  );
-};
-const handleCreateUser = async (userData) => {
+    setUsers(prevUsers => 
+      prevUsers.map(user => 
+        user.id === userId 
+          ? { ...user, status: newStatus }
+          : user
+      )
+    );
+  };
+
+  const handleCreateUser = async (userData) => {
     try {
       const newUser = await createUser(userData);
-      
       alert(`Пользователь ${newUser.firstName} ${newUser.lastName} успешно создан!`);
-      
       await loadUsers(0);
-      
       if (selectedRole) {
         setSelectedRole('');
       }
@@ -50,13 +56,39 @@ const handleCreateUser = async (userData) => {
   const loadUsers = async (page = 0, role = selectedRole) => {
     try {
       setLoading(true);
-      const data = await getUsers(page, 20, role || undefined);
-      setUsers(data.content || []);
-      setPageInfo(data.page || { page: 0, size: 20, totalElements: 0, totalPages: 0 });
+      console.log('Загружаем пользователей. Параметры:', { page, role, size: pageInfo.size });
+      
+      const data = await getUsers(page, pageInfo.size, role || undefined);
+      console.log('Полученные данные от API:', data);
+      
+      if (data && data.content && data.page) {
+        // Формат Spring Page
+        setUsers(data.content);
+        
+        // Информация о пагинации находится в data.page
+        setPageInfo({
+          page: data.page.page, // Используем data.page.page (индексация с 0)
+          size: data.page.size,
+          totalElements: data.page.totalElements,
+          totalPages: data.page.totalPages
+        });
+        
+        console.log('Установлены пользователи:', data.content.length);
+        console.log('Информация о пагинации:', {
+          page: data.page.page,
+          size: data.page.size,
+          totalElements: data.page.totalElements,
+          totalPages: data.page.totalPages
+        });
+      } else {
+        console.warn('Неизвестный формат данных:', data);
+        setUsers([]);
+      }
+      
       setError(null);
     } catch (err) {
+      console.error('Ошибка загрузки пользователей:', err);
       setError('Не удалось загрузить пользователей');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -67,12 +99,14 @@ const handleCreateUser = async (userData) => {
   }, []);
 
   const handleRoleChange = (role) => {
+    console.log('Изменение роли:', role);
     setSelectedRole(role);
     loadUsers(0, role);
   };
 
   const handlePageChange = (newPage) => {
-    loadUsers(newPage);
+    console.log('Смена страницы на:', newPage);
+    loadUsers(newPage, selectedRole);
   };
 
   const formatDate = (dateString) => {
@@ -84,17 +118,17 @@ const handleCreateUser = async (userData) => {
   };
 
   const getStatusColor = (status) => {
-  switch (status) {
-    case 'ACTIVE':
-      return '#2ecc71';
-    case 'INACTIVE':
-      return '#95a5a6';
-    case 'BLOCKED':
-      return '#e74c3c';
-    default:
-      return '#95a5a6';
-  }
-};
+    switch (status) {
+      case 'ACTIVE':
+        return '#2ecc71';
+      case 'INACTIVE':
+        return '#95a5a6';
+      case 'BLOCKED':
+        return '#e74c3c';
+      default:
+        return '#95a5a6';
+    }
+  };
 
   const getRoleLabel = (role) => {
     switch (role) {
@@ -109,6 +143,15 @@ const handleCreateUser = async (userData) => {
     }
   };
 
+  const handleCreateTariff = async (tariffData) => {
+    try {
+      const newTariff = await createCreditTariff(tariffData);
+      alert(`Тариф "${newTariff.name}" успешно создан!`);
+    } catch (error) {
+      throw error;
+    }
+  };
+
   if (loading && users.length === 0) {
     return <LoadingSpinner />;
   }
@@ -117,34 +160,32 @@ const handleCreateUser = async (userData) => {
     <div style={styles.container}>
       <div style={styles.header}>
         <div style={styles.headerLeft}>
-            <h1 style={styles.title}>Управление пользователями</h1>
-            <button 
+          <h1 style={styles.title}>Управление пользователями</h1>
+          <button 
             onClick={() => navigate('/credits')} 
             style={styles.creditsButton}
-            >
+          >
             💳 Список кредитов
-            </button>
+          </button>
         </div>
         <div style={styles.headerRight}>
-            <button 
+          <button 
             onClick={() => setIsUserModalOpen(true)}  
             style={styles.createUserButton}
           >
             👤 Создать пользователя
           </button>
-            <button 
+          <button 
             onClick={() => setIsModalOpen(true)} 
             style={styles.createRateButton}
-            >
+          >
             ➕ Создать ставку
-            </button>
-
-            <div style={styles.stats}>
+          </button>
+          <div style={styles.stats}>
             Всего пользователей: <strong>{pageInfo.totalElements}</strong>
-            </div>
+          </div>
         </div>
-         
-    </div>
+      </div>
 
       <RoleFilter 
         key="role-filter"
@@ -176,39 +217,43 @@ const handleCreateUser = async (userData) => {
                     formatDate={formatDate}
                     getStatusColor={getStatusColor}
                     getRoleLabel={getRoleLabel}
-                     onStatusChange={handleUserStatusChange} 
+                    onStatusChange={handleUserStatusChange} 
                   />
                 ))}
               </div>
 
+              {/* Отображаем пагинацию только если есть несколько страниц */}
               {pageInfo.totalPages > 1 && (
                 <Pagination
                   pageInfo={pageInfo}
                   onPageChange={handlePageChange}
                 />
               )}
+              
+              {/* Для отладки показываем информацию о пагинации */}
+              <div style={styles.debugInfo}>
+                Текущая страница: {pageInfo.page + 1} из {pageInfo.totalPages}, 
+                Всего элементов: {pageInfo.totalElements}, 
+                Элементов на странице: {pageInfo.size}
+              </div>
             </>
           )}
         </>
       )}
-
+      
+      <CreateUserModal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        onCreateUser={handleCreateUser}
+      />
+      
       <CreateTariffModal
-  isOpen={isModalOpen}
-  onClose={() => setIsModalOpen(false)}
-  onCreateTariff={handleCreateTariff}
-/>
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreateTariff={handleCreateTariff}
+      />
     </div>
-    
   );
-};
-
-const handleCreateTariff = async (tariffData) => {
-  try {
-    const newTariff = await createCreditTariff(tariffData);
-    alert(`Тариф "${newTariff.name}" успешно создан!`);
-  } catch (error) {
-    throw error;
-  }
 };
 
 const styles = {
@@ -230,11 +275,62 @@ const styles = {
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px'
+  },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '15px'
+  },
   title: {
     margin: 0,
     color: '#1e293b',
     fontSize: '2em',
     fontWeight: '600'
+  },
+  creditsButton: {
+    padding: '8px 16px',
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    color: '#3b82f6',
+    cursor: 'pointer',
+    fontSize: '0.95em',
+    transition: 'all 0.2s',
+    ':hover': {
+      backgroundColor: '#3b82f6',
+      color: 'white',
+      borderColor: '#3b82f6'
+    }
+  },
+  createUserButton: {
+    padding: '8px 16px',
+    backgroundColor: '#10b981',
+    border: 'none',
+    borderRadius: '8px',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '0.95em',
+    transition: 'background-color 0.2s',
+    ':hover': {
+      backgroundColor: '#059669'
+    }
+  },
+  createRateButton: {
+    padding: '8px 16px',
+    backgroundColor: '#8b5cf6',
+    border: 'none',
+    borderRadius: '8px',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '0.95em',
+    transition: 'background-color 0.2s',
+    ':hover': {
+      backgroundColor: '#7c3aed'
+    }
   },
   stats: {
     color: '#64748b',
@@ -285,6 +381,15 @@ const styles = {
   emptyText: {
     color: '#64748b',
     fontSize: '1.2em'
+  },
+  debugInfo: {
+    marginTop: '20px',
+    padding: '10px',
+    backgroundColor: '#f1f5f9',
+    borderRadius: '8px',
+    color: '#64748b',
+    fontSize: '0.9em',
+    textAlign: 'center'
   }
 };
 

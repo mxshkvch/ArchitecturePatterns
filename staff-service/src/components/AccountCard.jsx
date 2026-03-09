@@ -1,6 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+const AccountCard = ({ account, formatDate, formatCurrency, getStatusColor, userId }) => {
+  const navigate = useNavigate();
 
-const AccountCard = ({ account, formatDate, formatCurrency, getStatusColor }) => {
+  const handleViewTransactions = () => {
+    navigate(`/users/${userId}/accounts/${account.id}/transactions`);
+  };
+
   return (
     <div style={styles.card}>
       <div style={styles.cardHeader}>
@@ -50,6 +56,13 @@ const AccountCard = ({ account, formatDate, formatCurrency, getStatusColor }) =>
               <span style={styles.detailValue}>{formatDate(account.closedAt)}</span>
             </div>
           )}
+          <button 
+            onClick={handleViewTransactions}
+            style={styles.transactionsButton}
+          >
+            История операций
+          </button>
+
         </div>
       </div>
     </div>
@@ -144,7 +157,23 @@ const styles = {
     fontSize: '0.85em',
     fontWeight: '500',
     textAlign: 'center'
+  },
+  transactionsButton: {
+    padding: '8px 16px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '0.9em',
+    marginTop: '10px',
+    width: '100%',
+    transition: 'background-color 0.2s',
+    ':hover': {
+      backgroundColor: '#2563eb'
+    }
   }
+  
 };
 
 export default AccountCard;
