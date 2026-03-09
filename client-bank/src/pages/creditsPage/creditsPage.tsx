@@ -34,7 +34,11 @@ export const CreditsPage = () => {
         });
       }
     };
+
     loadCredits();
+
+    const interval = setInterval(loadCredits, 60_000);
+    return () => clearInterval(interval);
   }, [currentPage]);
 
   useEffect(() => {
