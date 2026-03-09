@@ -66,17 +66,19 @@ namespace CreditService.Services
             if (accountId == _FAILED_CORE)
                 throw new InvalidOperationException("Account does not exist");
 
+            var remainingAmountMoney = request.amount * (1 + tariff.interestRate * (DateTime.UtcNow.AddDays(request.term) - DateTime.UtcNow).TotalDays / 365.0);
+
             var credit = new Credit
             {
                 Id = Guid.NewGuid(),
                 userId = currentUser.Id,
                 tarrifId = tariff.Id,
                 principal = request.amount,
-                remainingAmount = request.amount,
+                remainingAmount = remainingAmountMoney,
                 interestRate = tariff.interestRate,
                 status = StatusCredit.ACTIVE,
                 startDate = DateTime.UtcNow,
-                endDate = DateTime.UtcNow.AddDays(90),
+                endDate = DateTime.UtcNow.AddDays(request.term),
                 accountId = accountId//
             };
 
@@ -123,7 +125,7 @@ namespace CreditService.Services
             if (creditId == Guid.Empty)
                 throw new ArgumentException("CreditId cannot be empty");
 
-            if (request.amount <= 0)
+            if (request.amount < 0)
                 throw new ArgumentException("Payment amount must be greater than zero");
 
             var currentUser = await GetCurrentUserAsync();
@@ -136,7 +138,8 @@ namespace CreditService.Services
                 throw new InvalidOperationException("Credit is not active");
 
             if (request.amount > credit.remainingAmount)
-                throw new InvalidOperationException("Payment amount exceeds remaining credit");
+                //throw new InvalidOperationException("Payment amount exceeds remaining credit");
+                request.amount = credit.remainingAmount;
 
             Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, CancellationToken.None);
 
@@ -151,6 +154,48 @@ namespace CreditService.Services
             }
 
             credit.remainingAmount -= request.amount;
+
+            if (credit.remainingAmount <= 0)
+                credit.status = StatusCredit.PAID;
+
+            _context.Credits.Update(credit);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task AutomaticPayCreditById(Guid creditId)//pay need++++
+        {
+            if (creditId == Guid.Empty)
+                throw new ArgumentException("CreditId cannot be empty");
+
+            Guid currentUser = await _context.Credits.Where(c => c.Id == creditId).Select(c => c.userId).FirstAsync();
+
+            var credit = await _context.Credits.FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
+            if (credit == null)
+                throw new KeyNotFoundException("Credit not found");
+
+            if (credit.status != StatusCredit.ACTIVE)
+                throw new InvalidOperationException("Credit is not active");
+
+            double amountToPay = (double)credit.remainingAmount * (double)credit.interestRate *
+                     ((credit.endDate - credit.startDate).TotalDays / 365.0);
+
+
+            if (amountToPay > credit.remainingAmount)
+                amountToPay = credit.remainingAmount;
+
+            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser, CancellationToken.None);
+
+            if (accountId == _FAILED_CORE)
+                throw new InvalidOperationException("Account does not exist");
+
+            bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(currentUser, accountId, (double)amountToPay, CancellationToken.None);
+
+            if (!isPaid)
+            {
+                throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
+            }
+
+            credit.remainingAmount -= (double)amountToPay;
 
             if (credit.remainingAmount <= 0)
                 credit.status = StatusCredit.PAID;

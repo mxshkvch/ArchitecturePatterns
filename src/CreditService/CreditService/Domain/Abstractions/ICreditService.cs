@@ -12,6 +12,7 @@ namespace CreditService.Domain.Abstractions
         Task PayCreditById(CreditPaymentRequest creditPaymentRequest, Guid creditId);
         Task<CreditsResponse> GetAllCreditsOfAllUsers(int page, int size);
         Task<CreditTariff> CreateNewTariff(CreateCreditTarrifRequest createCreditTarrifRequest);
+        Task AutomaticPayCreditById(Guid creditId);
 
     }
 }

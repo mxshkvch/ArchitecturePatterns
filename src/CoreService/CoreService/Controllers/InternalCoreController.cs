@@ -46,16 +46,23 @@ public class InternalCoreController : ControllerBase
     public async Task<ActionResult<bool>> PayUserAccount(
         Guid userId,
         [FromQuery] Guid accountId,
-        [FromQuery] double paymentAmount,
+        [FromQuery] string paymentAmount,
         CancellationToken cancellationToken)
     {
+        paymentAmount = paymentAmount.Replace(",", ".");
+
+        if (!double.TryParse(paymentAmount, System.Globalization.NumberStyles.Any,
+                     System.Globalization.CultureInfo.InvariantCulture, out double amount))
+        {
+            return BadRequest("Invalid payment amount");
+        }
 
         var account = await _dbContext.Accounts.Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountId).FirstOrDefaultAsync(cancellationToken);
 
         if (account == null)//если счет закрылся - ищем другой счет
         {
             Guid accountIdNew = await _dbContext.Accounts
-            .Where(a => a.UserId == userId && a.Status == 0 && a.Balance >= (decimal)paymentAmount)
+            .Where(a => a.UserId == userId && a.Status == 0 && a.Balance >= (decimal)amount)
             .Select(a => a.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -66,24 +73,24 @@ public class InternalCoreController : ControllerBase
 
             var accountNew = await _dbContext.Accounts.Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountIdNew).FirstOrDefaultAsync(cancellationToken);
 
-            if (account.Balance < (decimal)paymentAmount)
+            if (account.Balance < (decimal)amount)
             {
                 return Ok(false);//баланс нулевой - значит списываться ничего не будет
             }
 
-            account.Balance -= (decimal)paymentAmount;
+            account.Balance -= (decimal)amount;
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             return Ok(true);
         }
 
-        if (account.Balance < (decimal)paymentAmount)
+        if ((double)account.Balance < amount)
         {
             return Ok(false);//баланс нулевой - значит списываться ничего не будет
         }
 
-        account.Balance -= (decimal)paymentAmount;
+        account.Balance -= (decimal)amount;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
