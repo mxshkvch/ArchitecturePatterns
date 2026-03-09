@@ -68,9 +68,18 @@ builder.Services.AddScoped<ICreditService, CreditService.Services.CreditService>
 var userServiceUrl = builder.Configuration["Services:UserServiceUrl"]
     ?? throw new ArgumentException("Services:UserServiceUrl cannot be null");
 
+var coreServiceUrl = builder.Configuration["Services:CoreServiceUrl"]
+    ?? throw new ArgumentException("Services:CoreServiceUrl cannot be null");
+
+
 builder.Services.AddHttpClient<IUserServiceClient, UserServiceClient>(client =>
 {
     client.BaseAddress = new Uri(userServiceUrl);
+});
+
+builder.Services.AddHttpClient<ICoreServiceClient, CoreServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(coreServiceUrl);
 });
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";

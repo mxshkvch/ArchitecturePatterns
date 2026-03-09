@@ -143,4 +143,31 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
+
+    db.Database.Migrate();
+
+    if (!db.Users.Any(u => u.Role == UserService.Domain.Enums.UserRole.ADMIN))
+    {
+        var admin = new UserService.Domain.User
+        {
+            Id = Guid.NewGuid(),
+            Email = "admin@system.local",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+            FirstName = "System",
+            LastName = "Administrator",
+            Phone = null,
+            Role = UserService.Domain.Enums.UserRole.ADMIN,
+            Status = UserService.Domain.Enums.UserStatus.ACTIVE,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        db.Users.Add(admin);
+        db.SaveChanges();
+    }
+
+}
+
 app.Run();

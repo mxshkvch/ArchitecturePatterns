@@ -11,7 +11,6 @@ COPY staff-service/ .
 RUN sed -i 's|https://localhost:60882|http://localhost:60882|g' src/services/api.js
 RUN npm run build
 
-# Финальный образ с Nginx
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
