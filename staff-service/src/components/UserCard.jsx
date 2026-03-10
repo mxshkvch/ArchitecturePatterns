@@ -7,6 +7,31 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
   const [isUpdating, setIsUpdating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  const currentUser = useMemo(() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch (error) {
+      console.error('Ошибка при парсинге данных пользователя:', error);
+      return null;
+    }
+  }, []);
+
+
+  const isCurrentUserNewEmployee = useMemo(() => {
+    if (!currentUser) return false;
+    
+    const isEmployeeOrAdmin = currentUser.role === 'EMPLOYEE' || currentUser.role === 'ADMIN';
+    if (!isEmployeeOrAdmin) return false;
+    
+    const accountCreationDate = new Date(currentUser.createdAt);
+    const now = new Date();
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    
+    const accountAge = now - accountCreationDate;
+    return accountAge < oneDayInMs;
+  }, [currentUser]);
+
   // Функция для проверки, является ли пользователь новым сотрудником/администратором (< 1 дня)
   const isNewEmployeeOrAdmin = useMemo(() => {
     // Проверяем, что пользователь сотрудник или администратор
@@ -23,13 +48,14 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
     return accountAge < oneDayInMs;
   }, [user.role, user.createdAt]);
 
-  // Функция для определения, нужно ли показывать кнопки
+  
   const shouldShowButtons = useMemo(() => {
-    // Показываем кнопки если:
-    // 1. Пользователь клиент (всегда)
-    // 2. Или сотрудник/админ с аккаунтом младше 1 дня
+    if (isCurrentUserNewEmployee) {
+      return false;
+    }
+    
     return user.role === 'CLIENT' || isNewEmployeeOrAdmin;
-  }, [user.role, isNewEmployeeOrAdmin]);
+  }, [user.role, isNewEmployeeOrAdmin, isCurrentUserNewEmployee]);
 
   const handleCardClick = (e) => {
     if (e.target.closest('button') || e.target.closest('div[style*="confirmDialog"]')) {
@@ -60,6 +86,8 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
       setIsUpdating(false);
     }
   };
+
+  
 
   const handleConfirmBlock = () => {
     updateStatus('BLOCKED');

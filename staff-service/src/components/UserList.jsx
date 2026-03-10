@@ -261,6 +261,7 @@ const styles = {
     maxWidth: '1400px',
     margin: '0 auto',
     padding: '30px 20px',
+    left: '1000000px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     backgroundColor: '#f8fafc',
     minHeight: '100vh'
@@ -271,6 +272,7 @@ const styles = {
     alignItems: 'center',
     marginBottom: '30px',
     padding: '20px',
+    textAlign: 'center',
     backgroundColor: 'white',
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
