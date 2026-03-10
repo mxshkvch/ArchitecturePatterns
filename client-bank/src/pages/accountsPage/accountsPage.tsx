@@ -26,8 +26,9 @@ export const AccountsPage = () => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
 
-  useEffect(() => {
+ useEffect(() => {
     const loadAccounts = async () => {
+      console.log("Обновление счетов:", new Date().toLocaleTimeString());
       try {
         const data = await fetchAccounts(currentPage, pageSize);
         setAccountsResponse(data);
@@ -35,7 +36,11 @@ export const AccountsPage = () => {
         console.error("Ошибка загрузки счетов:", err);
       }
     };
+
     loadAccounts();
+
+    const interval = setInterval(loadAccounts, 60_000); 
+    return () => clearInterval(interval);
   }, [currentPage]);
 
   const accounts = accountsResponse?.content ?? [];
@@ -68,8 +73,24 @@ export const AccountsPage = () => {
 
   const handleWithdraw = async () => {
     if (!selectedAccountId) return;
+
+    const account = accounts.find(a => a.id === selectedAccountId);
+    const numAmount = Number(withdrawAmount);
+
+    if (!account) return;
+
+    if (numAmount <= 0) {
+      alert("Введите сумму больше 0");
+      return;
+    }
+
+    if (numAmount > account.balance) {
+      alert("Нельзя снять больше, чем есть на счете");
+      return;
+    }
+
     try {
-      await withdrawFromAccount(selectedAccountId, Number(withdrawAmount) || 0);
+      await withdrawFromAccount(selectedAccountId, numAmount);
       setShowWithdrawModal(false);
       setWithdrawAmount("");
       const data = await fetchAccounts(currentPage, pageSize);
@@ -80,6 +101,14 @@ export const AccountsPage = () => {
   };
 
   const handleCloseAccount = async (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return;
+
+    if (account.balance > 0) {
+      alert("Нельзя закрыть счет, пока на нём есть средства");
+      return;
+    }
+
     try {
       await closeAccount(accountId);
       const data = await fetchAccounts(currentPage, pageSize);
@@ -132,7 +161,13 @@ export const AccountsPage = () => {
                 <Card.Body>
                   <Card.Title>№ {account.accountNumber}</Card.Title>
                   <Card.Subtitle className="mb-2 text-muted">
-                    Открыт: {account.createdAt}
+                    Открыт: {new Date(account.createdAt).toLocaleString("ru-RU", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </Card.Subtitle>
                   <h4 className="my-3">
                     {account.balance.toLocaleString()} {account.currency}
