@@ -44,41 +44,50 @@ public class InternalCoreController : ControllerBase
 
     [HttpPost("{userId}/account/pay")]
     public async Task<ActionResult<bool>> PayUserAccount(
-        Guid userId,
-        [FromQuery] Guid accountId,
-        [FromQuery] string paymentAmount,
-        CancellationToken cancellationToken)
+    Guid userId,
+    [FromQuery] Guid accountId,
+    [FromQuery] string paymentAmount,
+    CancellationToken cancellationToken)
     {
         paymentAmount = paymentAmount.Replace(",", ".");
 
-        if (!double.TryParse(paymentAmount, System.Globalization.NumberStyles.Any,
-                     System.Globalization.CultureInfo.InvariantCulture, out double amount))
+        if (!double.TryParse(paymentAmount,
+            System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out double amount))
         {
             return BadRequest("Invalid payment amount");
         }
 
-        var account = await _dbContext.Accounts.Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountId).FirstOrDefaultAsync(cancellationToken);
+        amount = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
 
-        if (account == null)//если счет закрылся - ищем другой счет
+        var account = await _dbContext.Accounts
+            .Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (account == null)
         {
             Guid accountIdNew = await _dbContext.Accounts
-            .Where(a => a.UserId == userId && a.Status == 0 && a.Balance >= (decimal)amount)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+                .Where(a => a.UserId == userId && a.Status == 0 && a.Balance >= (decimal)amount)
+                .Select(a => a.Id)
+                .FirstOrDefaultAsync(cancellationToken);
 
             if (accountIdNew == Guid.Empty)
             {
                 return Ok(false);
             }
 
-            var accountNew = await _dbContext.Accounts.Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountIdNew).FirstOrDefaultAsync(cancellationToken);
+            var accountNew = await _dbContext.Accounts
+                .Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountIdNew)
+                .FirstOrDefaultAsync(cancellationToken);
 
-            if (account.Balance < (decimal)amount)
+            if (accountNew.Balance < (decimal)amount)
             {
-                return Ok(false);//баланс нулевой - значит списываться ничего не будет
+                return Ok(false);
             }
 
-            account.Balance -= (decimal)amount;
+            accountNew.Balance -= (decimal)amount;
+            accountNew.Balance = Math.Round(accountNew.Balance, 2);
 
             await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -87,10 +96,11 @@ public class InternalCoreController : ControllerBase
 
         if ((double)account.Balance < amount)
         {
-            return Ok(false);//баланс нулевой - значит списываться ничего не будет
+            return Ok(false);
         }
 
         account.Balance -= (decimal)amount;
+        account.Balance = Math.Round(account.Balance, 2);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
