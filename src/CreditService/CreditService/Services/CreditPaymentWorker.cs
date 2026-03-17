@@ -1,24 +1,31 @@
-﻿using CreditService.Domain.Abstractions;
+﻿using CreditService.Domain;
+using CreditService.Domain.Abstractions;
 using CreditService.Domain.Enum;
+using CreditService.Services.Abstractions;
+using CreditService.Services.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Security.Claims;
 using UserService.Data;
-using CreditService.Services.Abstractions;
 
 namespace CreditService.Services
 {
     public class CreditPaymentWorker : BackgroundService
     {
         private readonly IServiceScopeFactory _scopeFactory;
-
-        public CreditPaymentWorker(IServiceScopeFactory scopeFactory)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IUserServiceClient _userServiceClient;
+        public CreditPaymentWorker(IServiceScopeFactory scopeFactory, IHttpContextAccessor httpContextAccessor, IUserServiceClient userServiceClient)
         {
             _scopeFactory = scopeFactory;
+            _httpContextAccessor = httpContextAccessor;
+            _userServiceClient = userServiceClient;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var timer = new PeriodicTimer(TimeSpan.FromSeconds(25));
+            var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
 
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
@@ -27,23 +34,56 @@ namespace CreditService.Services
                 var context = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
                 var creditService = scope.ServiceProvider.GetRequiredService<ICreditService>();
 
-                var credits = await context.Credits
-                    .Where(c => c.status == StatusCredit.ACTIVE)
-                    .Select(c => c.Id)
-                    .ToListAsync(stoppingToken);
+                List<UserAccessResponse> users = await GetAllUsersAsync();
 
-                foreach (var creditId in credits)
+                foreach (var user in users)
                 {
-                    try
+                    if (user == null)
                     {
-                        await creditService.AutomaticPayCreditById(creditId);
+                        throw new KeyNotFoundException("User does not exist");
                     }
-                    catch
+
+                    var credits = await context.Credits
+                        .Where(c => c.status == StatusCredit.ACTIVE && c.userId == user.Id)
+                        .ToListAsync(stoppingToken);
+
+                    foreach (Credit credit in credits)
                     {
+                        try
+                        {
+                            await creditService.AutomaticPayCreditById(credit.Id, credit.accountId);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error processing credit {credit.Id}: {ex.Message}");
+                        }
                     }
                 }
             }
         }
 
+        private async Task<UserAccessResponse> GetCurrentUserAsync()
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                throw new UnauthorizedAccessException("User is not authenticated");
+            }
+
+            var userAccess = await _userServiceClient.GetUserAccessAsync(userId, CancellationToken.None);
+            if (!string.Equals(userAccess.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new UnauthorizedAccessException("User is not active");
+            }
+
+            return userAccess;
+        }
+
+        private async Task<List<UserAccessResponse>> GetAllUsersAsync()
+        {
+            var userAccess = await _userServiceClient.GetAllUsers(CancellationToken.None);
+
+            return userAccess;
+        }
     }
 }

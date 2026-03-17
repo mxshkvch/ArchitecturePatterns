@@ -48,12 +48,14 @@ namespace CreditService.Controllers
             return Ok(credit);
         }
 
-        [HttpPost("credits/{creditId:guid}/pay")]
-        public async Task<IActionResult> PayCredit([FromRoute] Guid creditId, [FromBody] CreditPaymentRequest request)
-        {
-            await _creditService.PayCreditById(request, creditId);
-            return Ok();
-        }
+        //убрать оплату по id
+
+        //[HttpPost("credits/{creditId:guid}/pay")]
+        //public async Task<IActionResult> PayCredit([FromRoute] Guid creditId, [FromBody] CreditPaymentRequest request)
+        //{
+        //    await _creditService.PayCreditById(request, creditId);
+        //    return Ok();
+        //}
 
         [HttpGet("admin/credits")]
         public async Task<ActionResult<CreditsResponse>> GetAllCredits([FromQuery] int page = 1, [FromQuery] int size = 10)

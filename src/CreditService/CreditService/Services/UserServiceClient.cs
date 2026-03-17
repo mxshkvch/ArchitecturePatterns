@@ -34,4 +34,20 @@ public sealed class UserServiceClient(HttpClient httpClient, IHttpContextAccesso
         var userAccess = await response.Content.ReadFromJsonAsync<UserAccessResponse>(cancellationToken);
         return userAccess ?? throw new InvalidOperationException("UserService returned empty user access payload");
     }
+    public async Task<List<UserAccessResponse>> GetAllUsers(CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"internal/users/all");
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException("Users not found");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var userAccess = await response.Content.ReadFromJsonAsync<List<UserAccessResponse>>(cancellationToken);
+        return userAccess ?? throw new InvalidOperationException("UserService returned empty user access payload");
+    }
 }

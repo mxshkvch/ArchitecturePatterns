@@ -18,23 +18,26 @@ public class InternalCoreController : ControllerBase
         _dbContext = dbContext;
     }
 
-    [HttpGet("{userId}/account")]
+    [HttpGet("{userId}/account/{accountId}")]
     public async Task<ActionResult<UserAccountResponse>> GetUserAccount(
         Guid userId,
+        Guid accountId,
         CancellationToken cancellationToken)
     {
-        var accountId = await _dbContext.Accounts
-            .Where(a => a.UserId == userId && a.Status == 0)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        bool isAccountExists = await _dbContext.Accounts.Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountId).AnyAsync(cancellationToken);
 
-        if (accountId == Guid.Empty)
+        if (!isAccountExists)
         {
-            return Ok(new UserAccountResponse
-            {
-                AccountId = _FAILED_CORE
-            });
+            return NotFound("User's account doesn't exist");
         }
+
+        //if (accountId == Guid.Empty)
+        //{
+        //    return Ok(new UserAccountResponse
+        //    {
+        //        AccountId = _FAILED_CORE
+        //    });
+        //}
 
         return Ok(new UserAccountResponse
         {

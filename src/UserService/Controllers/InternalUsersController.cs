@@ -2,12 +2,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UserService.Data;
+using UserService.Domain;
 
 namespace UserService.Controllers
 {
     [ApiController]
     [Route("internal/users")]
-    [Authorize]
+
     public class InternalUsersController(UserDbContext dbContext) : ControllerBase
     {
         [HttpGet("{userId:guid}/access")]
@@ -30,6 +31,27 @@ namespace UserService.Controllers
             }
 
             return Ok(user);
+        }
+
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAllUsers(CancellationToken cancellationToken)
+        {
+            var users = await dbContext.Users
+                .AsNoTracking()
+                .Select(x => new
+                {
+                    x.Id,
+                    Role = x.Role.ToString(),
+                    Status = x.Status.ToString()
+                })
+                .ToListAsync(cancellationToken);
+
+            if (users.Count == 0)
+            {
+                return NotFound();
+            }
+
+            return Ok(users);
         }
     }
 }
