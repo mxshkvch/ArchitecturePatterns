@@ -167,7 +167,7 @@ namespace CreditService.Services
         }
         //автоматически списывать только с того счета, который мы указали.
         //иначе уведомлять что какие-то проблемы со счетом
-        //продумать то, чтобы привязанный счет было невозможно закрыть.
+        //продумать то, чтобы привязанный счет было невозможно закрыть.!!!!
         public async Task AutomaticPayCreditById(Guid creditId, Guid accountId)
         {
             if (creditId == Guid.Empty)
@@ -192,7 +192,7 @@ namespace CreditService.Services
             if (credit.status != StatusCredit.ACTIVE)
                 throw new InvalidOperationException("Credit is not active");
 
-            double amountToPay = credit.remainingAmount * credit.interestRate *
+            double amountToPay = credit.principal * credit.interestRate *
                 ((credit.endDate - credit.startDate).TotalDays / 365.0);
 
             amountToPay = Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero);
@@ -215,7 +215,7 @@ namespace CreditService.Services
                 throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
 
             credit.remainingAmount -= amountToPay;
-            //проверить корректно ли округляется
+            //проверить корректно ли округляется+
             credit.remainingAmount = Math.Round(credit.remainingAmount, 2, MidpointRounding.AwayFromZero);
 
             if (credit.remainingAmount <= 0)
