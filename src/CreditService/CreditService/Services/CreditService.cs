@@ -5,8 +5,10 @@ using CreditService.Domain.Abstractions;
 using CreditService.Domain.Enum;
 using CreditService.Domain.Models;
 using CreditService.Services.Abstractions;
+using CreditService.Services.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Threading;
 using UserService.Data;
 
 namespace CreditService.Services

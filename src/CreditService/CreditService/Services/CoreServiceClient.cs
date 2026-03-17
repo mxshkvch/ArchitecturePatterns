@@ -59,6 +59,7 @@ namespace CreditService.Services
 
             var isPaid = response.StatusCode == HttpStatusCode.OK;
 
+
             return isPaid;
         }
 

@@ -135,6 +135,16 @@ public class InternalCoreController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        CreditAutomaticPaymentRequest request = new CreditAutomaticPaymentRequest
+        {
+            Amount = (decimal)amount,
+            Description = "Credit successfuly is taken"
+        };
+
+        await _accountService.CreditDepositTransactionAsync(accountId, userId, request);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
         return Ok(true);
     }
 
