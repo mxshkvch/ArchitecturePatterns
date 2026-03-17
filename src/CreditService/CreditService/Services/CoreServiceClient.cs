@@ -61,5 +61,18 @@ namespace CreditService.Services
 
             return isPaid;
         }
+
+        public async Task AddTransactionPayment(Guid userId, Guid accountId, double paymentAmount, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/core/{userId}/account/creditTransaction?accountId={accountId}&paymentAmount={paymentAmount}");
+
+            using var response = await httpClient.SendAsync(request, cancellationToken);
+
+            if(!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException($"Failed to add transaction: {errorContent}", null, response.StatusCode);
+            }
+        }
     }
 }

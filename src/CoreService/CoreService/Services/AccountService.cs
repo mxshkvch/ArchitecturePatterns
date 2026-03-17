@@ -231,6 +231,41 @@ public class AccountService : IAccountService
         await _context.SaveChangesAsync();
     }
 
+    public async Task CreditPaymentAsync(Guid accountId, Guid userId, CreditAutomaticPaymentRequest request)
+    {
+        var account = await _context.Accounts.FindAsync(accountId);
+        if (account == null || account.UserId != userId)
+        {
+            throw new InvalidOperationException("Account not found or access denied");
+        }
+
+        if (account.Status != AccountStatus.ACTIVE)
+        {
+            throw new InvalidOperationException("Account is not active");
+        }
+
+        if (account.Balance < request.Amount)
+        {
+            throw new InvalidOperationException("Insufficient funds");
+        }
+
+        account.Balance -= request.Amount;
+
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            AccountId = account.Id,
+            Type = TransactionType.CREDIT_PAYMENT,
+            Amount = request.Amount,
+            Description = request.Description,
+            Timestamp = DateTime.UtcNow,
+            BalanceAfter = account.Balance
+        };
+
+        _context.Transactions.Add(transaction);
+        await _context.SaveChangesAsync();
+    }
+
     private string GenerateAccountNumber()
     {
         var random = new Random();

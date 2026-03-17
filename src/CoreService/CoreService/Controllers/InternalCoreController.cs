@@ -1,8 +1,10 @@
 ﻿using CoreService.Data;
+using CoreService.DTOs.Requests;
 using CoreService.DTOs.Responses;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
+using CoreService.Services;
+using CoreService.Abstractions;
 namespace CoreService.Controllers;
 
 [ApiController]
@@ -12,10 +14,11 @@ public class InternalCoreController : ControllerBase
     private readonly AppDbContext _dbContext;
 
     public readonly Guid _FAILED_CORE = Guid.Parse("00000000-000b-0000-0000-000000000000");
-
-    public InternalCoreController(AppDbContext dbContext)
+    private IAccountService _accountService;
+    public InternalCoreController(AppDbContext dbContext, IAccountService accountService)
     {
         _dbContext = dbContext;
+        _accountService = accountService;
     }
 
     [HttpGet("{userId}/account/{accountId}")]
@@ -102,7 +105,8 @@ public class InternalCoreController : ControllerBase
         return Ok(true);
     }
 
-    //проверить функционал
+    //проверить функционал - работает
+    //добавить транзакцию
     [HttpPost("{userId}/account/creditDeposit")]
     public async Task<ActionResult<bool>> DepostUserAccountAfterApplyAsync(Guid userId, [FromQuery] Guid accountId,
     [FromQuery] string paymentAmount, CancellationToken cancellationToken)
@@ -133,4 +137,52 @@ public class InternalCoreController : ControllerBase
 
         return Ok(true);
     }
+
+    //проверить функционал
+    //добавляется но неверно считается.
+    [HttpPost("{userId}/account/creditTransaction")]
+    public async Task<ActionResult<bool>> AddTransactionCreditPayment(Guid userId, [FromQuery] Guid accountId,
+    [FromQuery] string paymentAmount, CancellationToken cancellationToken)
+    {
+        try
+        {
+            paymentAmount = paymentAmount.Replace(",", ".");
+
+            if (!double.TryParse(paymentAmount, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double amount))
+            {
+                return BadRequest("Invalid payment amount");
+            }
+
+            amount = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+
+            var account = await _dbContext.Accounts
+                .Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+
+            CreditAutomaticPaymentRequest request = new CreditAutomaticPaymentRequest
+            {
+                Amount = (decimal)amount,
+                Description = "Automatic credit payment"
+            };
+
+            await _accountService.CreditPaymentAsync(accountId, userId, request);
+
+            if (account == null)
+            {
+                return NotFound("User's account does not exists");
+            }
+
+            account.Balance = Math.Round(account.Balance, 2);
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return Ok(true);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest("Error with adding transaction to history");
+        }
+    }
+
 }

@@ -180,66 +180,85 @@ namespace CreditService.Services
         //продумать то, чтобы привязанный счет было невозможно закрыть.!!!!
 
         //в фоновом процессе выбрасывать ошибку НЕЛЬЗЯ!
+        //добавить в историю транзакций
         public async Task AutomaticPayCreditById(Guid creditId, Guid accountId)
         {
-            if (creditId == Guid.Empty)
-                //throw new ArgumentException("CreditId cannot be empty");
-                Console.WriteLine("CreditId cannot be empty");
+            try
+            {
+                if (creditId == Guid.Empty)
+                    //throw new ArgumentException("CreditId cannot be empty");
+                    Console.WriteLine("CreditId cannot be empty");
 
-            Guid currentUser = await _context.Credits
-                .Where(c => c.Id == creditId)
-                .Select(c => c.userId)
-                .FirstAsync();
+                Guid currentUser = await _context.Credits
+                    .Where(c => c.Id == creditId)
+                    .Select(c => c.userId)
+                    .FirstAsync();
 
-            //Guid accountId = await _context.Credits
-            //    .Where(c => c.Id == creditId)
-            //    .Select(c => c.accountId)
-            //    .FirstAsync();
+                //Guid accountId = await _context.Credits
+                //    .Where(c => c.Id == creditId)
+                //    .Select(c => c.accountId)
+                //    .FirstAsync();
 
-            var credit = await _context.Credits
-                .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
+                var credit = await _context.Credits
+                    .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
 
-            if (credit == null)
-                //throw new KeyNotFoundException("Credit not found");
-                Console.WriteLine("Credit not found");
+                if (credit == null)
+                    //throw new KeyNotFoundException("Credit not found");
+                    Console.WriteLine("Credit not found");
 
-            if (credit.status != StatusCredit.ACTIVE)
-                //throw new InvalidOperationException("Credit is not active");
-                Console.WriteLine("Credit is not active");
+                if (credit.status != StatusCredit.ACTIVE)
+                    //throw new InvalidOperationException("Credit is not active");
+                    Console.WriteLine("Credit is not active");
 
-            double amountToPay = credit.principal * credit.interestRate *
-                ((credit.endDate - credit.startDate).TotalDays / 365.0);
+                double amountToPay = credit.principal * credit.interestRate *
+                    ((credit.endDate - credit.startDate).TotalDays / 365.0);
 
-            amountToPay = Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero);
+                amountToPay = Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero);
 
-            if (amountToPay > credit.remainingAmount)
-                amountToPay = credit.remainingAmount;
+                if (amountToPay > credit.remainingAmount)
+                    amountToPay = credit.remainingAmount;
 
-            Guid accountIdAnswer = await _coreServiceClient.GetUserAccountAsync(currentUser, accountId, CancellationToken.None);
+                Guid accountIdAnswer = await _coreServiceClient.GetUserAccountAsync(currentUser, accountId, CancellationToken.None);
 
-            if (accountIdAnswer == _FAILED_CORE)
-                //throw new InvalidOperationException("Account does not exist")
-                Console.WriteLine("Account does not exist");
+                if (accountIdAnswer == _FAILED_CORE)
+                    //throw new InvalidOperationException("Account does not exist")
+                    Console.WriteLine("Account does not exist");
 
-            bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(
-                currentUser,
-                accountIdAnswer,
-                Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero),
-                CancellationToken.None);
+                bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(
+                    currentUser,
+                    accountIdAnswer,
+                    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero),
+                    CancellationToken.None);
 
-            if (!isPaid)
-                //throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
-                Console.WriteLine("Payment is not possible. Issue in balance or account");
+                if (!isPaid)
+                    //throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
+                    Console.WriteLine("Payment is not possible. Issue in balance or account");
 
-            credit.remainingAmount -= amountToPay;
-            //проверить корректно ли округляется+
-            credit.remainingAmount = Math.Round(credit.remainingAmount, 2, MidpointRounding.AwayFromZero);
+                credit.remainingAmount -= amountToPay;
+                //проверить корректно ли округляется+
+                credit.remainingAmount = Math.Round(credit.remainingAmount, 2, MidpointRounding.AwayFromZero);
 
-            if (credit.remainingAmount <= 0)
-                credit.status = StatusCredit.PAID;
+                if (credit.remainingAmount <= 0)
+                    credit.status = StatusCredit.PAID;
 
-            _context.Credits.Update(credit);
-            await _context.SaveChangesAsync();
+                //добавить в транзакции
+
+                await _coreServiceClient.AddTransactionPayment(currentUser,
+                    accountIdAnswer,
+                    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero), CancellationToken.None);
+
+                _context.Credits.Update(credit);
+
+
+
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"AutomaticPayCreditById failed. CreditId = {creditId}\nAccountId = {accountId}\n");
+            }
+
         }
 
         public async Task<CreditsResponse> GetAllCreditsOfAllUsers(int page, int size)

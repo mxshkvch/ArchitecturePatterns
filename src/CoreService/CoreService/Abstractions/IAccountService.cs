@@ -13,4 +13,5 @@ public interface IAccountService
     Task<PagedResponse<TransactionResponse>> GetTransactionsAsync(Guid accountId, Guid userId, bool isAdmin, int page, int size, DateTime? fromDate, DateTime? toDate);
     Task DepositAsync(Guid accountId, Guid userId, DepositRequest request);
     Task WithdrawAsync(Guid accountId, Guid userId, WithdrawalRequest request);
+    Task CreditPaymentAsync(Guid accountId, Guid userId, CreditAutomaticPaymentRequest request);
 }
