@@ -109,4 +109,36 @@ public class InternalCoreController : ControllerBase
 
         return Ok(true);
     }
+
+    //проверить функционал
+    [HttpPost("{userId}/account/creditDeposit")]
+    public async Task<ActionResult<bool>> DepostUserAccountAfterApplyAsync(Guid userId, [FromQuery] Guid accountId,
+    [FromQuery] string paymentAmount, CancellationToken cancellationToken)
+    {
+
+        paymentAmount = paymentAmount.Replace(",", ".");
+
+        if (!double.TryParse(paymentAmount, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double amount))
+        {
+            return BadRequest("Invalid payment amount");
+        }
+
+        amount = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+
+        var account = await _dbContext.Accounts
+            .Where(a => a.UserId == userId && a.Status == 0 && a.Id == accountId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (account == null)
+        {
+            return NotFound("User's account does not exists");
+        }
+
+        account.Balance += (decimal)amount;
+        account.Balance = Math.Round(account.Balance, 2);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(true);
+    }
 }

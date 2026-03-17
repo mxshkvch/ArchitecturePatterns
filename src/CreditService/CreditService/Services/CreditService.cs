@@ -65,10 +65,17 @@ namespace CreditService.Services
 
             Guid accountId = request.accountId;
 
+            //ФРОНТЕНД - ДОБАВИТЬ ВЫБОР ИМЕЮЩИХСЯ СЧЕТОВ ЧТОБ ОФОРМИТЬ НА НИХ КРЕДИТ
+
             //if (accountId == _FAILED_CORE)
             //    throw new InvalidOperationException("Account does not exist");
 
             Guid? isAccountExists = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, accountId, CancellationToken.None);
+
+            if (isAccountExists == null)
+            {
+                throw new KeyNotFoundException("User's Account does not exists");
+            }
 
             var remainingAmountMoney = request.amount * (1 + tariff.interestRate * (DateTime.UtcNow.AddDays(request.term) - DateTime.UtcNow).TotalDays / 365.0);
 
@@ -85,6 +92,9 @@ namespace CreditService.Services
                 endDate = DateTime.UtcNow.AddDays(request.term),
                 accountId = accountId//
             };
+
+            //проверить
+            await _coreServiceClient.DepostUserAccountAfterApplyAsync(currentUser.Id, accountId, credit.principal, CancellationToken.None);
 
             _context.Credits.Add(credit);
             await _context.SaveChangesAsync();

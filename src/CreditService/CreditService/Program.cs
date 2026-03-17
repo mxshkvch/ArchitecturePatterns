@@ -144,7 +144,7 @@ app.UseExceptionHandler(errorApp =>
             ForbiddenException => ((int)HttpStatusCode.Forbidden, "Доступ запрещен"),
             KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Ресурс не найден"),
             UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Доступ запрещён"),
-            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Ошибка внешнего сервиса"),
+            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, httpEx.Message),
             HttpRequestException => ((int)HttpStatusCode.BadGateway, "Внешний сервис недоступен"),
             _ => ((int)HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера")
         };

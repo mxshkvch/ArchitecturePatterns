@@ -14,7 +14,15 @@ namespace CreditService.Services
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 
-            response.EnsureSuccessStatusCode();
+            try
+            {
+                response.EnsureSuccessStatusCode();
+            }
+            catch (HttpRequestException)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new HttpRequestException(errorContent, null, response.StatusCode);
+            }
 
             UserAccountResponse? account = await response.Content.ReadFromJsonAsync<UserAccountResponse>(cancellationToken);
 
@@ -31,6 +39,19 @@ namespace CreditService.Services
             {
                 request.Headers.TryAddWithoutValidation("Authorization", authorization);
             }
+
+            using var response = await httpClient.SendAsync(request, cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            var isPaid = response.StatusCode == HttpStatusCode.OK;
+
+            return isPaid;
+        }
+
+        public async Task<bool> DepostUserAccountAfterApplyAsync(Guid userId, Guid accountId, double paymentAmount, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/core/{userId}/account/creditDeposit?accountId={accountId}&paymentAmount={paymentAmount}");
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 
