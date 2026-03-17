@@ -31,20 +31,12 @@ public class InternalCoreController : ControllerBase
             return NotFound("User's account doesn't exist");
         }
 
-        //if (accountId == Guid.Empty)
-        //{
-        //    return Ok(new UserAccountResponse
-        //    {
-        //        AccountId = _FAILED_CORE
-        //    });
-        //}
-
         return Ok(new UserAccountResponse
         {
             AccountId = accountId
         });
     }
-
+    //если не хватает средств, то все равно успешно списывается. FIX!!!!
     [HttpPost("{userId}/account/pay")]
     public async Task<ActionResult<bool>> PayUserAccount(
     Guid userId,
@@ -96,10 +88,10 @@ public class InternalCoreController : ControllerBase
 
             return Ok(true);
         }
-
+         
         if ((double)account.Balance < amount)
         {
-            return Ok(false);
+            return BadRequest();//badRequest должен быть
         }
 
         account.Balance -= (decimal)amount;

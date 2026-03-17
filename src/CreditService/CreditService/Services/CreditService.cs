@@ -178,10 +178,13 @@ namespace CreditService.Services
         //автоматически списывать только с того счета, который мы указали.
         //иначе уведомлять что какие-то проблемы со счетом
         //продумать то, чтобы привязанный счет было невозможно закрыть.!!!!
+
+        //в фоновом процессе выбрасывать ошибку НЕЛЬЗЯ!
         public async Task AutomaticPayCreditById(Guid creditId, Guid accountId)
         {
             if (creditId == Guid.Empty)
-                throw new ArgumentException("CreditId cannot be empty");
+                //throw new ArgumentException("CreditId cannot be empty");
+                Console.WriteLine("CreditId cannot be empty");
 
             Guid currentUser = await _context.Credits
                 .Where(c => c.Id == creditId)
@@ -197,10 +200,12 @@ namespace CreditService.Services
                 .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
 
             if (credit == null)
-                throw new KeyNotFoundException("Credit not found");
+                //throw new KeyNotFoundException("Credit not found");
+                Console.WriteLine("Credit not found");
 
             if (credit.status != StatusCredit.ACTIVE)
-                throw new InvalidOperationException("Credit is not active");
+                //throw new InvalidOperationException("Credit is not active");
+                Console.WriteLine("Credit is not active");
 
             double amountToPay = credit.principal * credit.interestRate *
                 ((credit.endDate - credit.startDate).TotalDays / 365.0);
@@ -213,7 +218,8 @@ namespace CreditService.Services
             Guid accountIdAnswer = await _coreServiceClient.GetUserAccountAsync(currentUser, accountId, CancellationToken.None);
 
             if (accountIdAnswer == _FAILED_CORE)
-                throw new InvalidOperationException("Account does not exist");
+                //throw new InvalidOperationException("Account does not exist")
+                Console.WriteLine("Account does not exist");
 
             bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(
                 currentUser,
@@ -222,7 +228,8 @@ namespace CreditService.Services
                 CancellationToken.None);
 
             if (!isPaid)
-                throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
+                //throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
+                Console.WriteLine("Payment is not possible. Issue in balance or account");
 
             credit.remainingAmount -= amountToPay;
             //проверить корректно ли округляется+

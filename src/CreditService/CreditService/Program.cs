@@ -140,7 +140,7 @@ app.UseExceptionHandler(errorApp =>
         var (statusCode, title) = exception switch
         {
             ArgumentException => ((int)HttpStatusCode.BadRequest, "Некорректные данные запроса"),
-            InvalidOperationException => ((int)HttpStatusCode.Conflict, "Конфликт данных"),
+            InvalidOperationException => ((int)HttpStatusCode.Conflict, exception.Message),
             ForbiddenException => ((int)HttpStatusCode.Forbidden, "Доступ запрещен"),
             KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Ресурс не найден"),
             UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Доступ запрещён"),

@@ -49,14 +49,12 @@ namespace CreditService.Services
 
                     foreach (Credit credit in credits)
                     {
-                        try
-                        {
-                            await creditService.AutomaticPayCreditById(credit.Id, credit.accountId);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error processing credit {credit.Id}: {ex.Message}");
-                        }
+
+                        await creditService.AutomaticPayCreditById(credit.Id, credit.accountId);
+                        //catch (Exception ex)
+                        //{
+                        //    Console.WriteLine($"Error processing credit {credit.Id}: {ex.Message}");
+                        //}
                     }
                 }
             }

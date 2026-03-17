@@ -42,7 +42,7 @@ namespace CreditService.Services
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 
-            response.EnsureSuccessStatusCode();
+            //response.EnsureSuccessStatusCode();
 
             var isPaid = response.StatusCode == HttpStatusCode.OK;
 
