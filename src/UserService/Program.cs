@@ -143,8 +143,11 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
+Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
+
 using (var scope = app.Services.CreateScope())
 {
+
     var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
 
     db.Database.Migrate();
@@ -153,7 +156,7 @@ using (var scope = app.Services.CreateScope())
     {
         var admin = new UserService.Domain.User
         {
-            Id = Guid.NewGuid(),
+            Id = MASTER_ACCOUNT,
             Email = "admin@system.local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
             FirstName = "System",

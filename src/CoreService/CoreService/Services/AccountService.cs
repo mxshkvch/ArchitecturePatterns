@@ -402,7 +402,7 @@ public class AccountService : IAccountService
         await _context.SaveChangesAsync();
     }
 
-    private string GenerateAccountNumber()
+    public string GenerateAccountNumber()
     {
         var random = new Random();
         return string.Join("", Enumerable.Range(0, 20).Select(_ => random.Next(0, 10).ToString()));

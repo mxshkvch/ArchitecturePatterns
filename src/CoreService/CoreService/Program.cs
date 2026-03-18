@@ -1,6 +1,8 @@
 using CoreService.Abstractions;
 using CoreService.Data;
 using CoreService.DTOs;
+using CoreService.Entities;
+using CoreService.Enums;
 using CoreService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
@@ -112,7 +114,39 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
+
+using (var scopeMaster = app.Services.CreateScope())
+{
+    IAccountService accountService = scopeMaster.ServiceProvider.GetRequiredService<IAccountService>();
+
+    var dbMaster = scopeMaster.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    dbMaster.Database.Migrate();
+
+    if (!dbMaster.Accounts.Any(u => u.Id == MASTER_ACCOUNT))
+    {
+        var masterAccount = new Account
+        {
+            Id = Guid.NewGuid(),
+            AccountNumber = accountService.GenerateAccountNumber(),
+            Status = AccountStatus.ACTIVE,
+            Balance = 1000000,//million,
+            Currency = Currency.RUB,
+            CreatedAt = DateTime.UtcNow,
+            ClosedAt = null,
+            UserId = MASTER_ACCOUNT//этот же айди у админа должен быть. Админ должен иметь доступ к мастер аккаунту
+        };
+
+        dbMaster.Accounts.Add(masterAccount);
+        dbMaster.SaveChanges();
+    }
+
+}
+
 var scope = app.Services.CreateScope();
+
+
 
 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 

@@ -7,6 +7,7 @@ using UserService.Domain.Enums;
 using UserService.Services;
 
 namespace UserService.Controllers;
+//8 пункт. Выбор темы - темная или светлая. Отметить счета скрытыми. 
 
 [ApiController]
 [Route("admin/users")]
