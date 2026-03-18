@@ -1,6 +1,8 @@
 ﻿using CreditService.Data.Responses;
+using CreditService.Domain.Enum;
 using CreditService.Services.Abstractions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Net.Http;
 
@@ -52,6 +54,21 @@ namespace CreditService.Services
         public async Task<bool> DepostUserAccountAfterApplyAsync(Guid userId, Guid accountId, double paymentAmount, CancellationToken cancellationToken)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/core/{userId}/account/creditDeposit?accountId={accountId}&paymentAmount={paymentAmount}");
+
+            using var response = await httpClient.SendAsync(request, cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            var isPaid = response.StatusCode == HttpStatusCode.OK;
+
+
+            return isPaid;
+        }
+
+        //credit master
+        public async Task<bool> MasterAccountTransaction(Guid userId, Guid toAccountId, decimal paymentAmount, string description, CancellationToken cancellationToken)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/core/{userId}/masterAccount/{toAccountId}?paymentAmount={paymentAmount}&description={description}");
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 

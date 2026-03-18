@@ -14,7 +14,7 @@ using UserService.Data;
 namespace CreditService.Services
 {
     //Начислять кредит на счет.
-
+    //снятие денег с мастер счета
     public class CreditService : ICreditService
     {
         private readonly CreditDbContext _context;
@@ -22,6 +22,7 @@ namespace CreditService.Services
         private readonly IUserServiceClient _userServiceClient;
         private readonly ICoreServiceClient _coreServiceClient;
         public readonly Guid _FAILED_CORE = Guid.Parse("00000000-000b-0000-0000-000000000000");
+        public readonly Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
         public CreditService(
             CreditDbContext context,
@@ -46,6 +47,7 @@ namespace CreditService.Services
             return await BuildTariffResponse(query, page, size);
         }
 
+        //masterAccount
         public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)//account 
         {
             if (request == null)
@@ -66,6 +68,8 @@ namespace CreditService.Services
                 throw new InvalidOperationException("Tariff is not active");
 
             Guid accountId = request.accountId;
+
+            //запрос со снятием денег с мастер счета
 
             //ФРОНТЕНД - ДОБАВИТЬ ВЫБОР ИМЕЮЩИХСЯ СЧЕТОВ ЧТОБ ОФОРМИТЬ НА НИХ КРЕДИТ
 
@@ -96,8 +100,8 @@ namespace CreditService.Services
             };
 
             //проверить
-            await _coreServiceClient.DepostUserAccountAfterApplyAsync(currentUser.Id, accountId, credit.principal, CancellationToken.None);
-
+            //await _coreServiceClient.DepostUserAccountAfterApplyAsync(currentUser.Id, accountId, credit.principal, CancellationToken.None);
+            bool isPaid = await _coreServiceClient.MasterAccountTransaction(credit.Id, accountId, (decimal)credit.principal, MasterDescription.UserTakesCredit.ToString(), CancellationToken.None);
             _context.Credits.Add(credit);
             await _context.SaveChangesAsync();
 
@@ -132,7 +136,7 @@ namespace CreditService.Services
 
             return credit;
         }
-
+        //masterAccount
         private async Task PayCreditById(CreditPaymentRequest request, Guid creditId)//pay need+
         {
             if (request == null)
@@ -177,12 +181,15 @@ namespace CreditService.Services
             _context.Credits.Update(credit);
             await _context.SaveChangesAsync();
         }
+        
         //автоматически списывать только с того счета, который мы указали.
         //иначе уведомлять что какие-то проблемы со счетом
         //продумать то, чтобы привязанный счет было невозможно закрыть.!!!!
 
         //в фоновом процессе выбрасывать ошибку НЕЛЬЗЯ!
         //добавить в историю транзакций
+
+        //masterAccount
         public async Task AutomaticPayCreditById(Guid creditId, Guid accountId)
         {
             try
@@ -226,15 +233,17 @@ namespace CreditService.Services
                     //throw new InvalidOperationException("Account does not exist")
                     Console.WriteLine("Account does not exist");
 
-                bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(
-                    currentUser,
-                    accountIdAnswer,
-                    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero),
-                    CancellationToken.None);
+                //bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(
+                //    currentUser,
+                //    accountIdAnswer,
+                //    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero),
+                //    CancellationToken.None);
+
+                bool isPaid = await _coreServiceClient.MasterAccountTransaction(currentUser, accountId, (decimal)amountToPay, MasterDescription.UserPaysCredit.ToString(), CancellationToken.None);
 
                 if (!isPaid)
                     //throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
-                    Console.WriteLine("Payment is not possible. Issue in balance or account");
+                    Console.WriteLine("Payment is not possible. Issue in balance or masteraccount");
 
                 credit.remainingAmount -= amountToPay;
                 //проверить корректно ли округляется+
@@ -244,15 +253,13 @@ namespace CreditService.Services
                     credit.status = StatusCredit.PAID;
 
                 //добавить в транзакции
+                //транзакции внутри masteraccounttransaction
 
-                await _coreServiceClient.AddTransactionPayment(currentUser,
-                    accountIdAnswer,
-                    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero), CancellationToken.None);
+                //await _coreServiceClient.AddTransactionPayment(currentUser,
+                //    accountIdAnswer,
+                //    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero), CancellationToken.None);
 
                 _context.Credits.Update(credit);
-
-
-
 
                 await _context.SaveChangesAsync();
             }

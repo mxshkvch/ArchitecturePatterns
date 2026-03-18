@@ -16,11 +16,13 @@ namespace CreditService.Services
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IUserServiceClient _userServiceClient;
-        public CreditPaymentWorker(IServiceScopeFactory scopeFactory, IHttpContextAccessor httpContextAccessor, IUserServiceClient userServiceClient)
+        private readonly ICoreServiceClient _coreServiceClient;
+        public CreditPaymentWorker(IServiceScopeFactory scopeFactory, IHttpContextAccessor httpContextAccessor, IUserServiceClient userServiceClient, ICoreServiceClient coreServiceClient)
         {
             _scopeFactory = scopeFactory;
             _httpContextAccessor = httpContextAccessor;
             _userServiceClient = userServiceClient;
+            _coreServiceClient = coreServiceClient;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -55,6 +57,7 @@ namespace CreditService.Services
                         //{
                         //    Console.WriteLine($"Error processing credit {credit.Id}: {ex.Message}");
                         //}
+                        //await _coreServiceClient.MasterAccountTransaction(user.Id, credit.accountId, (decimal)credit.principal, MasterDescription.UserPaysCredit.ToString(), CancellationToken.None);
                     }
                 }
             }

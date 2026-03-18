@@ -16,5 +16,6 @@ public interface IAccountService
     Task CreditPaymentAsync(Guid accountId, Guid userId, CreditAutomaticPaymentRequest request);
     Task CreditDepositTransactionAsync(Guid accountId, Guid userId, CreditAutomaticPaymentRequest request);
     Task<AccountResponse> TransferMoney(Guid fromAccountId, Guid toAccountId, decimal amountMoney);
+    Task<AccountResponse> TransferMoneyFromMasterAccount(Guid fromAccountId, Guid toAccountId, string description, decimal amountMoney);
     string GenerateAccountNumber();
 }

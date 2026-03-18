@@ -1,10 +1,11 @@
-﻿using CoreService.Data;
+﻿using CoreService.Abstractions;
+using CoreService.Data;
 using CoreService.DTOs.Requests;
 using CoreService.DTOs.Responses;
+using CoreService.Entities;
+using CoreService.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using CoreService.Services;
-using CoreService.Abstractions;
 namespace CoreService.Controllers;
 
 [ApiController]
@@ -15,6 +16,7 @@ public class InternalCoreController : ControllerBase
 
     public readonly Guid _FAILED_CORE = Guid.Parse("00000000-000b-0000-0000-000000000000");
     private IAccountService _accountService;
+    private readonly Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
     public InternalCoreController(AppDbContext dbContext, IAccountService accountService)
     {
         _dbContext = dbContext;
@@ -195,4 +197,44 @@ public class InternalCoreController : ControllerBase
         }
     }
 
+    //description - либо взятие кредита, либо внесение платы
+    //description == UserTakesCredit or UserPaysCredit
+    [HttpPost("{userId}/masterAccount/{toAccountId}")]
+    public async Task<ActionResult<bool>> MasterAccountTransaction(Guid userId, Guid toAccountId, [FromQuery] string paymentAmount, [FromQuery] string description, CancellationToken cancellationToken)
+    {
+        try
+        {
+            paymentAmount = paymentAmount.Replace(",", ".");
+
+            if (!double.TryParse(paymentAmount, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double amount))
+            {
+                return BadRequest("Invalid payment amount");
+            }
+
+            amount = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+
+            var account = await _dbContext.Accounts
+                .Where(a => a.Status == 0 && a.Id == MASTER_ACCOUNT)
+                .FirstOrDefaultAsync(cancellationToken);
+
+
+
+            CreditAutomaticPaymentRequest request = new CreditAutomaticPaymentRequest
+            {
+                Amount = (decimal)amount,
+                Description = description
+            };
+
+            //списание или пополнение
+            //внутри обработать UserTakesCredit or UserPaysCredit
+            AccountResponse accountResponse = await _accountService.TransferMoneyFromMasterAccount(MASTER_ACCOUNT, toAccountId, request.Description, request.Amount);
+
+
+            return Ok(true);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest("Error with adding transaction to history");
+        }
+    }
 }
