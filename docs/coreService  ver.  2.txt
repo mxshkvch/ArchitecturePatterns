@@ -1,0 +1,668 @@
+openapi: 3.0.0
+info:
+  title: Accounts Service API
+  version: 1.0.0
+  description: API для управления банковскими счетами и транзакциями
+  contact:
+    name: CoreService
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: http://localhost:5000
+    description: Local development
+
+tags:
+  - name: Accounts
+    description: Операции со счетами
+  - name: Transactions
+    description: Операции с транзакциями
+  - name: Admin
+    description: Административные операции
+
+paths:
+  # Публичные методы (доступны всем авторизованным пользователям)
+  
+  /accounts:
+    get:
+      tags:
+        - Accounts
+      summary: Получить список счетов текущего пользователя
+      description: Возвращает список всех счетов авторизованного пользователя с пагинацией
+      operationId: getAccounts
+      parameters:
+        - name: page
+          in: query
+          description: Номер страницы (начиная с 0)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          description: Количество элементов на странице
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponseOfAccountResponse'
+        '400':
+          description: Неверные параметры запроса
+        '401':
+          description: Не авторизован
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Accounts
+      summary: Создать новый счет
+      description: Создает новый банковский счет для текущего пользователя
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Счет успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Ошибка в запросе
+        '401':
+          description: Не авторизован
+        '422':
+          description: Некорректные данные
+      security:
+        - bearerAuth: []
+
+  /accounts/{accountId}:
+    get:
+      tags:
+        - Accounts
+      summary: Получить информацию о счете
+      description: Возвращает детальную информацию о конкретном счете
+      operationId: getAccount
+      parameters:
+        - name: accountId
+          in: path
+          description: Уникальный идентификатор счета
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          description: Не авторизован
+        '403':
+          description: Доступ запрещен
+        '404':
+          description: Счет не найден
+      security:
+        - bearerAuth: []
+
+    delete:
+      tags:
+        - Accounts
+      summary: Закрыть счет
+      description: Закрывает счет при нулевом балансе
+      operationId: closeAccount
+      parameters:
+        - name: accountId
+          in: path
+          description: Уникальный идентификатор счета
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Счет успешно закрыт
+        '400':
+          description: Невозможно закрыть счет с ненулевым балансом
+        '401':
+          description: Не авторизован
+        '403':
+          description: Доступ запрещен
+        '404':
+          description: Счет не найден
+      security:
+        - bearerAuth: []
+
+  /accounts/{accountId}/transactions:
+    get:
+      tags:
+        - Transactions
+      summary: Получить историю транзакций по счету
+      description: Возвращает список транзакций для указанного счета с возможностью фильтрации по дате
+      operationId: getAccountTransactions
+      parameters:
+        - name: accountId
+          in: path
+          description: Уникальный идентификатор счета
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Номер страницы
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          description: Количество элементов на странице
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: fromDate
+          in: query
+          description: Начальная дата фильтра (включительно)
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2024-01-01T00:00:00Z"
+        - name: toDate
+          in: query
+          description: Конечная дата фильтра (включительно)
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2024-12-31T23:59:59Z"
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponseOfTransactionResponse'
+        '400':
+          description: Неверные параметры запроса
+        '401':
+          description: Не авторизован
+        '403':
+          description: Доступ запрещен
+        '404':
+          description: Счет не найден
+      security:
+        - bearerAuth: []
+
+  /accounts/{fromAccountId}/transfer/{toAccountId}:
+    post:
+      tags:
+        - Transactions
+      summary: Перевести средства между счетами
+      description: Выполняет перевод денег со счета отправителя на счет получателя
+      operationId: transferMoney
+      parameters:
+        - name: fromAccountId
+          in: path
+          description: ID счета отправителя
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: toAccountId
+          in: path
+          description: ID счета получателя
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '200':
+          description: Перевод выполнен успешно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Ошибка в запросе (недостаточно средств, счет не активен и т.д.)
+        '401':
+          description: Не авторизован
+        '403':
+          description: Отправитель не владеет счетом
+        '404':
+          description: Счет не найден
+      security:
+        - bearerAuth: []
+
+  /accounts/{accountId}/deposit:
+    post:
+      tags:
+        - Transactions
+      summary: Внести депозит на счет
+      description: Пополняет счет на указанную сумму
+      operationId: deposit
+      parameters:
+        - name: accountId
+          in: path
+          description: ID счета для пополнения
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositRequest'
+      responses:
+        '200':
+          description: Депозит успешно внесен
+        '400':
+          description: Ошибка в запросе
+        '401':
+          description: Не авторизован
+        '403':
+          description: Доступ запрещен
+        '404':
+          description: Счет не найден
+      security:
+        - bearerAuth: []
+
+  /accounts/{accountId}/withdraw:
+    post:
+      tags:
+        - Transactions
+      summary: Снять средства со счета
+      description: Снимает указанную сумму со счета
+      operationId: withdraw
+      parameters:
+        - name: accountId
+          in: path
+          description: ID счета для снятия
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalRequest'
+      responses:
+        '200':
+          description: Средства успешно сняты
+        '400':
+          description: Ошибка в запросе
+        '401':
+          description: Не авторизован
+        '402':
+          description: Недостаточно средств
+        '403':
+          description: Доступ запрещен или счет не активен
+        '404':
+          description: Счет не найден
+      security:
+        - bearerAuth: []
+
+  # Административные методы (только для ADMIN/EMPLOYEE)
+  
+  /admin/accounts:
+    get:
+      tags:
+        - Admin
+      summary: Получить все счета (только для ADMIN/EMPLOYEE)
+      description: Административный эндпоинт для получения списка всех счетов с фильтрацией
+      operationId: getAllAccounts
+      parameters:
+        - name: page
+          in: query
+          description: Номер страницы
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          description: Количество элементов на странице
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: userId
+          in: query
+          description: Фильтр по ID пользователя
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          description: Фильтр по статусу счета
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, BLOCKED, CLOSED, FROZEN]
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponseOfAccountResponse'
+        '400':
+          description: Неверные параметры запроса
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+      security:
+        - bearerAuth: []
+
+  /admin/accounts/{accountId}/transactions:
+    get:
+      tags:
+        - Admin
+      summary: Получить транзакции любого счета (только для ADMIN/EMPLOYEE)
+      description: Административный эндпоинт для просмотра транзакций любого счета
+      operationId: getAllTransactions
+      parameters:
+        - name: accountId
+          in: path
+          description: ID счета
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          description: Номер страницы
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          description: Количество элементов на странице
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponseOfTransactionResponse'
+        '400':
+          description: Неверные параметры запроса
+        '401':
+          description: Не авторизован
+        '403':
+          description: Недостаточно прав
+        '404':
+          description: Счет не найден
+      security:
+        - bearerAuth: []
+
+components:
+  schemas:
+    AccountResponse:
+      type: object
+      description: Информация о банковском счете
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор счета
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        accountNumber:
+          type: string
+          description: Номер счета (20 цифр)
+          example: "12345678901234567890"
+          pattern: '^\d{20}$'
+        userId:
+          type: string
+          format: uuid
+          description: ID владельца счета
+          example: "123e4567-e89b-12d3-a456-426614174001"
+        balance:
+          type: number
+          format: decimal
+          description: Текущий баланс
+          example: 1500.50
+        currency:
+          type: string
+          description: Валюта счета
+          example: "USD"
+          enum: [USD, EUR, RUB, GBP]
+        status:
+          type: string
+          description: Статус счета
+          enum: [ACTIVE, BLOCKED, CLOSED, FROZEN]
+          example: "ACTIVE"
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+          example: "2024-01-01T10:00:00Z"
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата закрытия (если счет закрыт)
+          example: null
+
+    CreateAccountRequest:
+      type: object
+      description: Запрос на создание нового счета
+      properties:
+        initialDeposit:
+          type: number
+          format: decimal
+          description: Начальный депозит
+          example: 100.00
+          minimum: 0
+        currency:
+          type: string
+          description: Валюта счета
+          example: "USD"
+          enum: [USD, EUR, RUB, GBP]
+      required:
+        - currency
+
+    TransferRequest:
+      type: object
+      description: Запрос на перевод средств
+      properties:
+        amountMoney:
+          type: number
+          format: decimal
+          description: Сумма перевода
+          example: 500.00
+          minimum: 0.01
+      required:
+        - amountMoney
+
+    DepositRequest:
+      type: object
+      description: Запрос на пополнение счета
+      properties:
+        amount:
+          type: number
+          format: decimal
+          description: Сумма депозита
+          example: 1000.00
+          minimum: 0.01
+        description:
+          type: string
+          description: Описание транзакции
+          example: "ATM deposit"
+          maxLength: 500
+      required:
+        - amount
+
+    WithdrawalRequest:
+      type: object
+      description: Запрос на снятие средств
+      properties:
+        amount:
+          type: number
+          format: decimal
+          description: Сумма снятия
+          example: 200.00
+          minimum: 0.01
+        description:
+          type: string
+          description: Описание транзакции
+          example: "ATM withdrawal"
+          maxLength: 500
+      required:
+        - amount
+
+    TransactionResponse:
+      type: object
+      description: Информация о транзакции
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор транзакции
+          example: "123e4567-e89b-12d3-a456-426614174002"
+        accountId:
+          type: string
+          format: uuid
+          description: ID счета
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        type:
+          type: string
+          description: Тип транзакции
+          enum: [DEPOSIT, WITHDRAWAL, TRANSFER, CREDIT_PAYMENT]
+          example: "TRANSFER"
+        amount:
+          type: number
+          format: decimal
+          description: Сумма транзакции
+          example: 500.00
+        description:
+          type: string
+          description: Описание транзакции
+          example: "Transfer to account 123456..."
+        timestamp:
+          type: string
+          format: date-time
+          description: Время транзакции
+          example: "2024-01-15T14:30:00Z"
+        balanceAfter:
+          type: number
+          format: decimal
+          description: Баланс после транзакции
+          example: 1000.00
+
+    PageInfo:
+      type: object
+      description: Информация о пагинации
+      properties:
+        page:
+          type: integer
+          description: Текущая страница
+          example: 0
+        size:
+          type: integer
+          description: Размер страницы
+          example: 20
+        totalElements:
+          type: integer
+          description: Общее количество элементов
+          example: 150
+        totalPages:
+          type: integer
+          description: Общее количество страниц
+          example: 8
+
+    PagedResponseOfAccountResponse:
+      type: object
+      description: Страница со списком счетов
+      properties:
+        content:
+          type: array
+          description: Список счетов на текущей странице
+          items:
+            $ref: '#/components/schemas/AccountResponse'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+
+    PagedResponseOfTransactionResponse:
+      type: object
+      description: Страница со списком транзакций
+      properties:
+        content:
+          type: array
+          description: Список транзакций на текущей странице
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+
+    ErrorResponse:
+      type: object
+      description: Ответ с ошибкой
+      properties:
+        message:
+          type: string
+          description: Сообщение об ошибке
+          example: "Insufficient funds"
+        code:
+          type: string
+          description: Код ошибки
+          example: "INSUFFICIENT_FUNDS"
+        timestamp:
+          type: string
+          format: date-time
+          description: Время ошибки
+          example: "2024-01-15T14:30:00Z"
+        path:
+          type: string
+          description: Путь запроса
+          example: "/api/accounts/123/withdraw"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен для аутентификации
+
+security:
+  - bearerAuth: []
