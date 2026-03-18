@@ -15,4 +15,5 @@ public interface IAccountService
     Task WithdrawAsync(Guid accountId, Guid userId, WithdrawalRequest request);
     Task CreditPaymentAsync(Guid accountId, Guid userId, CreditAutomaticPaymentRequest request);
     Task CreditDepositTransactionAsync(Guid accountId, Guid userId, CreditAutomaticPaymentRequest request);
+    Task<AccountResponse> TransferMoney(Guid fromAccountId, Guid toAccountId, decimal amountMoney);
 }

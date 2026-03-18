@@ -8,6 +8,7 @@ namespace CoreService.Controllers;
 [ApiController]
 [Route("api")]
 [Authorize]
+//оепебнд ян яверю мю явер!!!!
 public class AccountsController : ControllerBase
 {
     private readonly IAccountService _accountService;
@@ -17,6 +18,24 @@ public class AccountsController : ControllerBase
     {
         _accountService = accountService;
         _currentUserService = currentUserService;
+    }
+
+    [HttpPost("accounts/{fromAccountId}/transfer/{toAccountId}")]
+    public async Task<IActionResult> TransferMoney(Guid fromAccountId, Guid toAccountId, [FromBody] TransferRequest transferRequest)
+    {
+        try
+        {
+            var response = await _accountService.TransferMoney(fromAccountId, toAccountId, transferRequest.amountMoney);
+            return StatusCode(200, response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 
     [HttpGet("accounts")]

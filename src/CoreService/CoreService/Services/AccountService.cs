@@ -6,16 +6,124 @@ using CoreService.DTOs.Responses;
 using CoreService.Entities;
 using CoreService.Enums;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Security.Principal;
 
 namespace CoreService.Services;
 
 public class AccountService : IAccountService
 {
     private readonly AppDbContext _context;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICurrentUserService _userServiceClient;
 
-    public AccountService(AppDbContext context)
+    public AccountService(AppDbContext context, IHttpContextAccessor httpContextAccessor, ICurrentUserService userServiceClient)
     {
         _context = context;
+        _httpContextAccessor = httpContextAccessor;
+        _userServiceClient = userServiceClient;
+    }
+
+    public async Task<AccountResponse> TransferMoney(Guid fromAccountId, Guid toAccountId, decimal amountMoney)
+    {
+        //fromAccount ќЅя«ј“≈Ћ№Ќќ должен принадлежать текущему юзеру
+
+        //возвращаетс€ ответ счета с которого списываютс€ деньги
+        //хватает ли средств
+        //существуют ли счета
+        //не забыть про транзакцию
+        //проверить статус счета
+        //провер€ю пока со счета на счет одного и того же человека - должно работать при переводе на любой другой счет
+
+
+
+        Account? fromAccount = _context.Accounts.Where(a => a.Id == fromAccountId).FirstOrDefault();
+        Account? toAccount = _context.Accounts.Where(a => a.Id == toAccountId).FirstOrDefault();
+
+        if (fromAccount == null)
+        {
+            throw new InvalidOperationException("fromAccount not found");
+        }
+
+        Guid currentUser = _userServiceClient.GetUserId();
+
+        if (currentUser == Guid.Empty)
+        {
+            throw new UnauthorizedAccessException("Not authorized");
+        }
+
+        if (fromAccount.UserId != currentUser)
+        {
+            throw new InvalidOperationException($"user = {currentUser} does not own account = {fromAccountId}");
+        }
+
+        if (toAccount == null)
+        {
+            throw new InvalidOperationException("toAccount not found");
+        }
+
+        if (fromAccount.Balance < amountMoney)
+        {
+            throw new InvalidOperationException($"Balance on fromAccount ({fromAccount}) is lower than amountMoney = {amountMoney}");
+        }
+
+        if (fromAccount.Status != AccountStatus.ACTIVE)
+        {
+            throw new InvalidOperationException($"fromAccount = {fromAccount} is not active");
+        }
+
+        if (toAccount.Status != AccountStatus.ACTIVE)
+        {
+            throw new InvalidOperationException($"toAccount = {toAccount} is not active");
+        }
+
+        //уменьшить у фром и увеличить у to
+
+        fromAccount.Balance -= amountMoney;
+        toAccount.Balance += amountMoney;
+
+        _context.Accounts.UpdateRange( fromAccount, toAccount );
+
+        //две транзакции
+
+        Transaction fromTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            AccountId = fromAccountId,
+            Type = TransactionType.TRANSFER,
+            Amount = amountMoney,
+            Description = $"Transfer to {toAccountId}",
+            Timestamp = DateTime.UtcNow,
+            BalanceAfter = fromAccount.Balance
+        };
+
+        Transaction toTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            AccountId = toAccountId,
+            Type = TransactionType.TRANSFER,
+            Amount = amountMoney,
+            Description = $"Transfer from {fromAccountId}",
+            Timestamp = DateTime.UtcNow,
+            BalanceAfter = toAccount.Balance
+        };
+
+        _context.Transactions.AddRange(fromTransaction, toTransaction);
+        await _context.SaveChangesAsync();
+
+        AccountResponse accountResponse = new AccountResponse
+        {
+            AccountNumber = fromAccount.AccountNumber,
+            ClosedAt = fromAccount.ClosedAt,
+            CreatedAt = fromAccount.CreatedAt,
+            Status = fromAccount.Status.ToString(),
+            Balance = fromAccount.Balance,
+            Currency = fromAccount.Currency.ToString(),
+            Id = fromAccount.Id,
+            UserId = fromAccount.UserId
+        };
+
+        return accountResponse;
     }
 
     public async Task<PagedResponse<AccountResponse>> GetAccountsAsync(Guid userId, int page, int size)
