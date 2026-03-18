@@ -128,7 +128,7 @@ using (var scopeMaster = app.Services.CreateScope())
     {
         var masterAccount = new Account
         {
-            Id = Guid.NewGuid(),
+            Id = MASTER_ACCOUNT,
             AccountNumber = accountService.GenerateAccountNumber(),
             Status = AccountStatus.ACTIVE,
             Balance = 1000000,//million,
