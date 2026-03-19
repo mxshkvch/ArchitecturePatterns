@@ -222,9 +222,7 @@ public class AccountService : IAccountService
         {
             Id = Guid.NewGuid(),
             AccountId = masterAccountId,
-            Type = TransactionType.TRANSFER,
             Amount = amountMoney,
-            Description = $"Credit is given to {toAccountId}",
             Timestamp = DateTime.UtcNow,
             BalanceAfter = masterAccount.Balance
         };
@@ -233,12 +231,32 @@ public class AccountService : IAccountService
         {
             Id = Guid.NewGuid(),
             AccountId = toAccountId,
-            Type = TransactionType.TRANSFER,
             Amount = amountMoney,
-            Description = $"Credit is taken from {masterAccountId}",
             Timestamp = DateTime.UtcNow,
             BalanceAfter = toAccount.Balance
         };
+
+        switch (description)
+        {
+            case "UserTakesCredit":
+
+                masterTransaction.Type = TransactionType.CREDIT_GIVE;
+                masterTransaction.Description = $"Credit is given to {toAccountId}";
+
+                toTransaction.Type = TransactionType.CREDIT_RECEIPT;
+                toTransaction.Description = $"Credit is taken from {masterAccountId}";
+
+                break;
+            case "UserPaysCredit":
+
+                masterTransaction.Type = TransactionType.CREDIT_RECEIPT;
+                masterTransaction.Description = $"User's account = {toAccountId} paid";
+
+                toTransaction.Type = TransactionType.CREDIT_PAYMENT;
+                toTransaction.Description = $"Pay to master account = {masterAccountId}";
+
+                break;
+        }
 
         _context.Transactions.AddRange(masterTransaction, toTransaction);
         await _context.SaveChangesAsync();
