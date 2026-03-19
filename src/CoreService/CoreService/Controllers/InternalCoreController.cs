@@ -4,12 +4,14 @@ using CoreService.DTOs.Requests;
 using CoreService.DTOs.Responses;
 using CoreService.Entities;
 using CoreService.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 namespace CoreService.Controllers;
 
 [ApiController]
 [Route("internal/core")]
+[Authorize(Roles = "SERVICE")]
 public class InternalCoreController : ControllerBase
 {
     private readonly AppDbContext _dbContext;

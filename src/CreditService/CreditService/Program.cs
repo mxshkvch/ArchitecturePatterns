@@ -66,6 +66,8 @@ builder.Services.AddDbContext<CreditDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<ICreditService, CreditService.Services.CreditService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IServiceTokenProvider, ServiceTokenProvider>();
 
 var userServiceUrl = builder.Configuration["Services:UserServiceUrl"]
     ?? throw new ArgumentException("Services:UserServiceUrl cannot be null");
@@ -110,16 +112,6 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
-
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-});
 
 var app = builder.Build();
 

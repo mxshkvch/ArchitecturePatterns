@@ -3,16 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using UserService.Contracts.Common.Abstractions;
 using UserService.Contracts.Requests;
 using UserService.Contracts.Responses;
-using UserService.Domain.Enums;
-using UserService.Services;
 
 namespace UserService.Controllers;
-//8 пункт. Выбор темы - темная или светлая. Отметить счета скрытыми. 
 
 [ApiController]
 [Route("admin/users")]
 [Tags("User Service")]
-[Authorize]
+[Authorize(Roles = "ADMIN,EMPLOYEE")]
 public sealed class UserController(IUserManagementService userManagementService) : ControllerBase
 {
     [HttpGet]

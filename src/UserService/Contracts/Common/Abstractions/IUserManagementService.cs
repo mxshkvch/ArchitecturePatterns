@@ -7,6 +7,7 @@ namespace UserService.Contracts.Common.Abstractions
     {
         Task<UsersResponse> GetUsersAsync(PagingQuery query, CancellationToken cancellationToken);
         Task<UserResponse> CreateUserAsync(RegisterClientRequest request, CancellationToken cancellationToken);
+        Task<UserResponse> CreateUserProfileAsync(CreateUserProfileRequest request, CancellationToken cancellationToken);
         Task<UserResponse> UpdateStatusAsync(Guid userId, UpdateUserStatusRequest request, CancellationToken cancellationToken);
     }
 }

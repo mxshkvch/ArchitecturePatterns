@@ -62,7 +62,6 @@ builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
@@ -158,7 +157,7 @@ using (var scope = app.Services.CreateScope())
         {
             Id = MASTER_ACCOUNT,
             Email = "admin@system.local",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+            PasswordHash = string.Empty,
             FirstName = "System",
             LastName = "Administrator",
             Phone = null,

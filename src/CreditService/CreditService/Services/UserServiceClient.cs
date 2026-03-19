@@ -1,21 +1,15 @@
 using CreditService.Services.Abstractions;
-using Microsoft.AspNetCore.Http;
 using System.Net;
-using System.Net.Http.Headers;
 
 namespace CreditService.Services;
 
-public sealed class UserServiceClient(HttpClient httpClient, IHttpContextAccessor httpContextAccessor) : IUserServiceClient
+public sealed class UserServiceClient(HttpClient httpClient, IServiceTokenProvider serviceTokenProvider) : IUserServiceClient
 {
     public async Task<UserAccessResponse> GetUserAccessAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, $"internal/users/{userId}/access");
-
-        var authorization = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
-        if (!string.IsNullOrWhiteSpace(authorization))
-        {
-            request.Headers.TryAddWithoutValidation("Authorization", authorization);
-        }
+        var accessToken = await serviceTokenProvider.GetAccessTokenAsync(cancellationToken);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
 
@@ -37,6 +31,8 @@ public sealed class UserServiceClient(HttpClient httpClient, IHttpContextAccesso
     public async Task<List<UserAccessResponse>> GetAllUsers(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, $"internal/users/all");
+        var accessToken = await serviceTokenProvider.GetAccessTokenAsync(cancellationToken);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
 

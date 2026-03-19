@@ -1,16 +1,25 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UserService.Contracts.Common.Abstractions;
+using UserService.Contracts.Requests;
 using UserService.Data;
-using UserService.Domain;
 
 namespace UserService.Controllers
 {
     [ApiController]
     [Route("internal/users")]
-
-    public class InternalUsersController(UserDbContext dbContext) : ControllerBase
+    [Authorize(Roles = "SERVICE,ADMIN,EMPLOYEE")]
+    [Tags("Internal User Directory")]
+    public class InternalUsersController(IUserManagementService userManagementService, UserDbContext dbContext) : ControllerBase
     {
+        [HttpPost("profiles")]
+        public async Task<IActionResult> CreateUserProfile([FromBody] CreateUserProfileRequest request, CancellationToken cancellationToken)
+        {
+            var response = await userManagementService.CreateUserProfileAsync(request, cancellationToken);
+            return Created($"/internal/users/{response.Id}", response);
+        }
+
         [HttpGet("{userId:guid}/access")]
         public async Task<IActionResult> GetUserAccess(Guid userId, CancellationToken cancellationToken)
         {
