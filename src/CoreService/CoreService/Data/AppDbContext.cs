@@ -20,6 +20,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Account>().HasKey(a => a.Id);
         modelBuilder.Entity<Account>().HasIndex(a => a.AccountNumber).IsUnique();
+        modelBuilder.Entity<Account>().ToTable(table => table.HasCheckConstraint("CK_Accounts_Balance_NonNegative", "\"Balance\" >= 0"));
 
         modelBuilder.Entity<Transaction>().HasKey(t => t.Id);
         modelBuilder.Entity<CreditTariff>().HasKey(ct => ct.Id);

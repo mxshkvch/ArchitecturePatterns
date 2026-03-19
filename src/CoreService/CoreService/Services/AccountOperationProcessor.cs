@@ -90,6 +90,11 @@ public sealed class AccountOperationProcessor(AppDbContext dbContext) : IAccount
             throw new InvalidOperationException("Target account is required");
         }
 
+        if (message.TargetAccountId.Value == message.AccountId)
+        {
+            throw new InvalidOperationException("Source and target accounts must differ");
+        }
+
         var fromAccount = await dbContext.Accounts
             .SingleOrDefaultAsync(x => x.Id == message.AccountId && x.UserId == message.UserId && x.Status == AccountStatus.ACTIVE, cancellationToken)
             ?? throw new InvalidOperationException("Source account not found or access denied");
