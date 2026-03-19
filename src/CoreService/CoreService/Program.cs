@@ -3,7 +3,9 @@ using CoreService.Data;
 using CoreService.DTOs;
 using CoreService.Entities;
 using CoreService.Enums;
+using CoreService.Hubs;
 using CoreService.Services;
+using CoreService.Services.Realtime;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +15,13 @@ using System.Text;
 using System.Text.Json.Serialization;
 using CoreService.Configurations;
 using RabbitMQ.Client;
+using CoreService.Abstractions.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
     .AddJsonOptions(options => { options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
+builder.Services.AddSignalR();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -66,6 +70,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
+builder.Services.AddSingleton<IOperationNotificationService, OperationNotificationService>();
 builder.Services.AddMemoryCache();
 builder.Services.Configure<ExchangeRateOptions>(builder.Configuration.GetSection("ExchangeRates"));
 builder.Services.AddHttpClient<IExchangeRateService, ExchangeRateService>((serviceProvider, client) =>
@@ -148,6 +153,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<OperationsHub>("/hubs/operations");
 
 Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
 

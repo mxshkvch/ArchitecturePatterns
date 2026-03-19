@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CoreService.Abstractions;
+using CoreService.Abstractions.Realtime;
 using CoreService.Configurations;
 using CoreService.Messaging;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,7 @@ namespace CoreService.Services;
 public sealed class RabbitMqAccountOperationWorker(
     IConnection rabbitMqConnection,
     IServiceScopeFactory serviceScopeFactory,
+    IOperationNotificationService operationNotificationService,
     IOptions<RabbitMqOptions> options,
     ILogger<RabbitMqAccountOperationWorker> logger) : BackgroundService
 {
@@ -52,6 +54,7 @@ public sealed class RabbitMqAccountOperationWorker(
                 var processor = scope.ServiceProvider.GetRequiredService<IAccountOperationProcessor>();
 
                 await processor.ProcessAsync(message, stoppingToken);
+                await operationNotificationService.NotifyOperationInvalidatedAsync(message, stoppingToken);
                 await channel.BasicAckAsync(result.DeliveryTag, false, stoppingToken);
             }
             catch (Exception exception)
