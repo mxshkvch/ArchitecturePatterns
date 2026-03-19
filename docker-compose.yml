@@ -96,6 +96,22 @@ services:
       authservice:
         condition: service_started
 
+  bffservice:
+    build:
+      context: .
+      dockerfile: src/BffService/Dockerfile
+    container_name: bank_bffservice
+    ports:
+      - "5208:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=BffService;Username=postgres;Password=postgres
+      - Jwt__Issuer=black.auth
+      - Jwt__Audience=black.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   client-bank:
     build:
       context: .
@@ -105,6 +121,7 @@ services:
       - "3000:80"
     depends_on:
       - coreservice
+      - bffservice
 
   staff-service:
     build:
