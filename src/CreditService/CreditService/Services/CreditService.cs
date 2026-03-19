@@ -101,7 +101,11 @@ namespace CreditService.Services
 
             //проверить
             //await _coreServiceClient.DepostUserAccountAfterApplyAsync(currentUser.Id, accountId, credit.principal, CancellationToken.None);
-            bool isPaid = await _coreServiceClient.MasterAccountTransaction(credit.Id, accountId, (decimal)credit.principal, MasterDescription.UserTakesCredit.ToString(), CancellationToken.None);
+            bool isPaid = await _coreServiceClient.MasterAccountTransaction(currentUser.Id, accountId, (decimal)credit.principal, MasterDescription.UserTakesCredit.ToString(), CancellationToken.None);
+            if (!isPaid)
+            {
+                throw new InvalidOperationException("Master account transfer was not completed");
+            }
             _context.Credits.Add(credit);
             await _context.SaveChangesAsync();
 
