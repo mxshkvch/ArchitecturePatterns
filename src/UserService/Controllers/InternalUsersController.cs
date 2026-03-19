@@ -53,5 +53,47 @@ namespace UserService.Controllers
 
             return Ok(users);
         }
+
+        [HttpGet("{userId:guid}/creditHistory")]
+        public async Task<IActionResult> GetUserCreditHistory(Guid userId, CancellationToken cancellationToken)
+        {
+            int? userCreditHistory = await dbContext.Users
+                .AsNoTracking()
+                .Where(x => x.Id == userId)
+                .Select(x => x.creditHistory)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (userCreditHistory is null)
+            {
+                return NotFound();
+            }
+
+            return Ok(userCreditHistory);
+        }
+
+        [HttpPatch("{userId:guid}/creditHistory")]
+        public async Task<IActionResult> ChangeCreditHistory(Guid userId, int amount, CancellationToken cancellationToken)
+        {
+            User? user = await dbContext.Users
+                .AsNoTracking()
+                .Where(x => x.Id == userId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (user is null)
+            {
+                return NotFound();
+            }
+
+            user.creditHistory += amount; //если отрцательно должно уменьшаться
+
+            if (user.creditHistory < 0)
+                user.creditHistory = 0;
+
+            dbContext.Update(user);
+
+            await dbContext.SaveChangesAsync();
+
+            return Ok(user.creditHistory);
+        }
     }
 }

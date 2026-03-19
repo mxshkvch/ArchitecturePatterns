@@ -50,4 +50,38 @@ public sealed class UserServiceClient(HttpClient httpClient, IHttpContextAccesso
         var userAccess = await response.Content.ReadFromJsonAsync<List<UserAccessResponse>>(cancellationToken);
         return userAccess ?? throw new InvalidOperationException("UserService returned empty user access payload");
     }
+
+    public async Task<int> ChangeCreditHistory(Guid userId, int amount, CancellationToken cancellationToken)//протестировать
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"internal/users/{userId}/creditHistory?amount={amount}");
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException("userCreditHistory not found");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        int? creditHistory = await response.Content.ReadFromJsonAsync<int>(cancellationToken);
+        return creditHistory ?? throw new InvalidOperationException("UserService returned not valid creditHistory");
+    }
+
+    public async Task<int> GetCreditHistory(Guid userId, CancellationToken cancellationToken)//протестировать
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"internal/users/{userId}/creditHistory");
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new KeyNotFoundException("userCreditHistory not found");
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        int? creditHistory = await response.Content.ReadFromJsonAsync<int>(cancellationToken);
+        return creditHistory ?? throw new InvalidOperationException("UserService returned not valid creditHistory");
+    }
 }

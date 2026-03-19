@@ -16,5 +16,6 @@ public sealed class UserDbContext(DbContextOptions<UserDbContext> options) : DbC
         users.Property(x => x.FirstName).HasMaxLength(120).IsRequired();
         users.Property(x => x.LastName).HasMaxLength(120).IsRequired();
         users.Property(x => x.Phone).HasMaxLength(25);
+        users.Property(x => x.creditHistory).HasDefaultValue(1000);
     }
 }

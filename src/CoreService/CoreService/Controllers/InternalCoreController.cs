@@ -230,7 +230,7 @@ public class InternalCoreController : ControllerBase
             AccountResponse accountResponse = await _accountService.TransferMoneyFromMasterAccount(MASTER_ACCOUNT, toAccountId, request.Description, request.Amount);
 
 
-            return Ok(true);
+            return Ok(accountResponse);
         }
         catch (Exception ex)
         {

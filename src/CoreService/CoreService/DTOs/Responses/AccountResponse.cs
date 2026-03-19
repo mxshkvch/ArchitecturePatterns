@@ -1,4 +1,6 @@
-﻿namespace CoreService.DTOs.Responses;
+﻿using CoreService.Enums;
+
+namespace CoreService.DTOs.Responses;
 
 public class AccountResponse
 {
@@ -10,4 +12,5 @@ public class AccountResponse
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
+    public TransactionType? transactionType { get; set; }
 }

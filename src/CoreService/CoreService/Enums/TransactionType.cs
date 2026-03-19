@@ -7,5 +7,6 @@ public enum TransactionType
     TRANSFER,
     CREDIT_PAYMENT,
     CREDIT_RECEIPT,
-    CREDIT_GIVE
+    CREDIT_GIVE,
+    CREDIT_OVERDUE_PAYMENT
 }

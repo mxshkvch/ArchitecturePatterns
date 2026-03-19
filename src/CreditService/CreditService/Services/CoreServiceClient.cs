@@ -1,10 +1,13 @@
 ﻿using CreditService.Data.Responses;
-using CreditService.Domain.Enum;
+using CreditService.Domain.Models;
 using CreditService.Services.Abstractions;
+using CreditService.Services.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CreditService.Services
 {
@@ -66,18 +69,47 @@ namespace CreditService.Services
         }
 
         //credit master
-        public async Task<bool> MasterAccountTransaction(Guid userId, Guid toAccountId, decimal paymentAmount, string description, CancellationToken cancellationToken)
+        public async Task<IsPaidAndAccountResponse> MasterAccountTransaction(Guid userId, Guid toAccountId, decimal paymentAmount, string description, CancellationToken cancellationToken)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, $"internal/core/{userId}/masterAccount/{toAccountId}?paymentAmount={paymentAmount}&description={description}");
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
 
             response.EnsureSuccessStatusCode();
+            
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-            var isPaid = response.StatusCode == HttpStatusCode.OK;
+            //if (content.Contains("\"closedAt\""))
+            //{
+            //    content = content.Replace("\"closedAt\":null", "\"closedAt\":\"null\"");
+            //}
+
+            var accountResponse = JsonSerializer.Deserialize<AccountResponse>(
+                content,
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    // Для enum строкового формата, если нужно
+                    Converters = { new JsonStringEnumConverter() }
+                });
+
+            bool isPaid;
+
+            if (accountResponse.transactionType == TransactionType.CREDIT_OVERDUE_PAYMENT)
+            {
+                isPaid = false;
+            }
 
 
-            return isPaid;
+            isPaid = response.StatusCode == HttpStatusCode.OK;
+
+            IsPaidAndAccountResponse isPaidAndAccountResponse = new IsPaidAndAccountResponse
+            {
+                isPaid = isPaid,
+                accountResponse = accountResponse
+            };
+
+            return isPaidAndAccountResponse;
         }
 
         public async Task AddTransactionPayment(Guid userId, Guid accountId, double paymentAmount, CancellationToken cancellationToken)

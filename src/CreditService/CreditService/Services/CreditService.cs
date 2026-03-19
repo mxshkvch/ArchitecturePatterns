@@ -23,6 +23,8 @@ namespace CreditService.Services
         private readonly ICoreServiceClient _coreServiceClient;
         public readonly Guid _FAILED_CORE = Guid.Parse("00000000-000b-0000-0000-000000000000");
         public readonly Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        private readonly int minusRating = -10;
+        private readonly int plusRating = 15;
 
         public CreditService(
             CreditDbContext context,
@@ -48,6 +50,7 @@ namespace CreditService.Services
         }
 
         //masterAccount
+        //ПРОВЕРЯТЬ КРЕДИТНУЮ ИСТОРИЮ
         public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)//account 
         {
             if (request == null)
@@ -101,7 +104,9 @@ namespace CreditService.Services
 
             //проверить
             //await _coreServiceClient.DepostUserAccountAfterApplyAsync(currentUser.Id, accountId, credit.principal, CancellationToken.None);
-            bool isPaid = await _coreServiceClient.MasterAccountTransaction(credit.Id, accountId, (decimal)credit.principal, MasterDescription.UserTakesCredit.ToString(), CancellationToken.None);
+            IsPaidAndAccountResponse isPaidAndAccountResponse = await _coreServiceClient.MasterAccountTransaction(credit.Id, accountId, (decimal)credit.principal, MasterDescription.UserTakesCredit.ToString(), CancellationToken.None);
+            
+            
             _context.Credits.Add(credit);
             await _context.SaveChangesAsync();
 
@@ -136,52 +141,6 @@ namespace CreditService.Services
 
             return credit;
         }
-        //masterAccount
-        private async Task PayCreditById(CreditPaymentRequest request, Guid creditId)//pay need+
-        {
-            if (request == null)
-                throw new ArgumentException("Request is null");
-
-            if (creditId == Guid.Empty)
-                throw new ArgumentException("CreditId cannot be empty");
-
-            if (request.amount < 0)
-                throw new ArgumentException("Payment amount must be greater than zero");
-
-            var currentUser = await GetCurrentUserAsync();
-
-            var credit = await _context.Credits.FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser.Id);
-            if (credit == null)
-                throw new KeyNotFoundException("Credit not found");
-
-            if (credit.status != StatusCredit.ACTIVE)
-                throw new InvalidOperationException("Credit is not active");
-
-            if (request.amount > credit.remainingAmount)
-                //throw new InvalidOperationException("Payment amount exceeds remaining credit");
-                request.amount = credit.remainingAmount;
-
-            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, request.accountId, CancellationToken.None);
-
-            if (accountId == _FAILED_CORE)
-                throw new InvalidOperationException("Account does not exist");
-
-            bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(currentUser.Id, accountId, request.amount, CancellationToken.None);
-
-            if (!isPaid)
-            {
-                throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
-            }
-
-            credit.remainingAmount -= request.amount;
-
-            if (credit.remainingAmount <= 0)
-                credit.status = StatusCredit.PAID;
-
-            _context.Credits.Update(credit);
-            await _context.SaveChangesAsync();
-        }
-        
         //автоматически списывать только с того счета, который мы указали.
         //иначе уведомлять что какие-то проблемы со счетом
         //продумать то, чтобы привязанный счет было невозможно закрыть.!!!!
@@ -239,11 +198,38 @@ namespace CreditService.Services
                 //    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero),
                 //    CancellationToken.None);
 
-                bool isPaid = await _coreServiceClient.MasterAccountTransaction(currentUser, accountId, (decimal)amountToPay, MasterDescription.UserPaysCredit.ToString(), CancellationToken.None);
+                IsPaidAndAccountResponse isPaidAndAccountResponse = await _coreServiceClient.MasterAccountTransaction(currentUser, accountId, (decimal)amountToPay, MasterDescription.UserPaysCredit.ToString(), CancellationToken.None);
 
-                if (!isPaid)
+                bool isPaid = isPaidAndAccountResponse.isPaid;
+
+                //если просрочен платеж то добавить в историю транзакций
+
+                if (isPaidAndAccountResponse.accountResponse.transactionType == TransactionType.CREDIT_OVERDUE_PAYMENT)
+                {
                     //throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
                     Console.WriteLine("Payment is not possible. Issue in balance or masteraccount");
+
+                    var creditFail = await _context.Credits.FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
+                    creditFail.failedPaymentsAmount++;
+                    //обратиться к юзеру и понизить рейтинг
+
+
+
+                    int creditHistory = await _userServiceClient.ChangeCreditHistory(credit.userId, minusRating, CancellationToken.None);
+
+                    //также подумать про повышение
+
+                    _context.Credits.Update(credit);
+
+                    Console.WriteLine($"CreditHistory got worse - credit history == {creditHistory}");
+
+                    await _context.SaveChangesAsync();
+
+                    return;
+                }
+
+
+
 
                 credit.remainingAmount -= amountToPay;
                 //проверить корректно ли округляется+

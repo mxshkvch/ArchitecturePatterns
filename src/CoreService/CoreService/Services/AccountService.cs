@@ -131,6 +131,8 @@ public class AccountService : IAccountService
         return accountResponse;
     }
 
+    
+
     public async Task<AccountResponse> TransferMoneyFromMasterAccount(Guid masterAccountId, Guid toAccountId, string description, decimal amountMoney)
     {
         //fromAccount ќЅя«ј“≈Ћ№Ќќ должен принадлежать текущему юзеру
@@ -187,6 +189,8 @@ public class AccountService : IAccountService
 
         //description UserTakesCredit or UserPaysCredit
 
+        bool isPaymentOverdue = false;
+
         switch (description)
         {
             case "UserTakesCredit":
@@ -204,11 +208,18 @@ public class AccountService : IAccountService
 
                 if (toAccount.Balance < amountMoney)
                 {
-                    throw new InvalidOperationException($"Balance on toAccount ({toAccount}) is lower than amountMoney = {amountMoney}");
+                    //throw new InvalidOperationException($"Balance on toAccount ({toAccount}) is lower than amountMoney = {amountMoney}");
+                    //не throw а возвращать overdue
+
+                    isPaymentOverdue = true;
                 }
 
-                masterAccount.Balance += amountMoney;
-                toAccount.Balance -= amountMoney;
+                if (!isPaymentOverdue)
+                {
+                    masterAccount.Balance += amountMoney;
+                    toAccount.Balance -= amountMoney;
+                }
+
 
                 break;
         }
@@ -219,6 +230,41 @@ public class AccountService : IAccountService
         //уменьшить у фром и увеличить у to
 
         _context.Accounts.UpdateRange(masterAccount, toAccount);
+
+        Transaction toTransaction;
+
+        //необходимо в счетчик добавить
+        if (isPaymentOverdue)
+        {
+            toTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                AccountId = toAccountId,
+                Amount = amountMoney,
+                Timestamp = DateTime.UtcNow,
+                BalanceAfter = toAccount.Balance,
+                Description = $"Balance on account ({toAccount}) is too low than amount of money = {amountMoney}",
+                Type = TransactionType.CREDIT_OVERDUE_PAYMENT
+            };
+
+            _context.Transactions.Add(toTransaction);
+            await _context.SaveChangesAsync();
+
+            AccountResponse accountResponseIsOverdue = new AccountResponse
+            {
+                AccountNumber = toAccount.AccountNumber,
+                ClosedAt = toAccount.ClosedAt,
+                CreatedAt = toAccount.CreatedAt,
+                Status = toAccount.Status.ToString(),
+                Balance = toAccount.Balance,
+                Currency = toAccount.Currency.ToString(),
+                Id = toAccount.Id,
+                UserId = toAccount.UserId,
+                transactionType = TransactionType.CREDIT_OVERDUE_PAYMENT
+            };
+
+            return accountResponseIsOverdue;
+        }
 
         //две транзакции
 
@@ -231,7 +277,7 @@ public class AccountService : IAccountService
             BalanceAfter = masterAccount.Balance
         };
 
-        Transaction toTransaction = new Transaction
+        toTransaction = new Transaction
         {
             Id = Guid.NewGuid(),
             AccountId = toAccountId,
@@ -262,6 +308,8 @@ public class AccountService : IAccountService
                 break;
         }
 
+        _context.Accounts.UpdateRange(masterAccount, toAccount);
+
         _context.Transactions.AddRange(masterTransaction, toTransaction);
         await _context.SaveChangesAsync();
 
@@ -274,7 +322,8 @@ public class AccountService : IAccountService
             Balance = toAccount.Balance,
             Currency = toAccount.Currency.ToString(),
             Id = toAccount.Id,
-            UserId = toAccount.UserId
+            UserId = toAccount.UserId,
+            transactionType = TransactionType.CREDIT_RECEIPT
         };
 
         return accountResponse;
