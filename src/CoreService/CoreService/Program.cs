@@ -16,12 +16,17 @@ using System.Text.Json.Serialization;
 using CoreService.Configurations;
 using RabbitMQ.Client;
 using CoreService.Abstractions.Realtime;
+using CoreService.Validators;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
     .AddJsonOptions(options => { options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
 builder.Services.AddSignalR();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<TransferRequestValidator>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -105,6 +110,45 @@ app.UseRouting();
 
 
 app.UseCors();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+        if (exception is null)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            return;
+        }
+
+        var (statusCode, title) = exception switch
+        {
+            ValidationException => ((int)HttpStatusCode.BadRequest, "Validation failed"),
+            ArgumentException => ((int)HttpStatusCode.BadRequest, "Invalid request"),
+            InvalidOperationException => ((int)HttpStatusCode.Conflict, "Operation conflict"),
+            ForbiddenException => ((int)HttpStatusCode.Forbidden, "Access denied"),
+            KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Resource not found"),
+            UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Unauthorized"),
+            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Dependency failure"),
+            HttpRequestException => ((int)HttpStatusCode.BadGateway, "Dependency unavailable"),
+            _ => ((int)HttpStatusCode.InternalServerError, "Internal server error")
+        };
+
+        context.Response.Clear();
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/problem+json";
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            title,
+            status = statusCode,
+            detail = exception.Message,
+            traceId = context.TraceIdentifier
+        });
+    });
+});
 
 //app.UseExceptionHandler(errorApp =>
 //{

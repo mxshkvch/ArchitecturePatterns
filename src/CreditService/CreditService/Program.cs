@@ -3,6 +3,9 @@ using CreditService.Data.Responses;
 using CreditService.Domain.Abstractions;
 using CreditService.Services;
 using CreditService.Services.Abstractions;
+using CreditService.Validators;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +21,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<ApplyForCreditRequestValidator>();
 
 builder.Services.AddCors(options =>
 {
