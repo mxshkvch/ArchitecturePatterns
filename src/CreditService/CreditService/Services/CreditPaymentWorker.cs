@@ -31,34 +31,35 @@ namespace CreditService.Services
 
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
-                using var scope = _scopeFactory.CreateScope();
-
-                var context = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
-                var creditService = scope.ServiceProvider.GetRequiredService<ICreditService>();
-
-                List<UserAccessResponse> users = await GetAllUsersAsync();
-
-                foreach (var user in users)
+                try
                 {
-                    if (user == null)
+                    using var scope = _scopeFactory.CreateScope();
+
+                    var context = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
+                    var creditService = scope.ServiceProvider.GetRequiredService<ICreditService>();
+
+                    List<UserAccessResponse> users = await GetAllUsersAsync();
+
+                    foreach (var user in users)
                     {
-                        throw new KeyNotFoundException("User does not exist");
+                        if (user == null)
+                        {
+                            continue;
+                        }
+
+                        var credits = await context.Credits
+                            .Where(c => c.status == StatusCredit.ACTIVE && c.userId == user.Id)
+                            .ToListAsync(stoppingToken);
+
+                        foreach (Credit credit in credits)
+                        {
+                            await creditService.AutomaticPayCreditById(credit.Id, credit.accountId);
+                        }
                     }
-
-                    var credits = await context.Credits
-                        .Where(c => c.status == StatusCredit.ACTIVE && c.userId == user.Id)
-                        .ToListAsync(stoppingToken);
-
-                    foreach (Credit credit in credits)
-                    {
-
-                        await creditService.AutomaticPayCreditById(credit.Id, credit.accountId);
-                        //catch (Exception ex)
-                        //{
-                        //    Console.WriteLine($"Error processing credit {credit.Id}: {ex.Message}");
-                        //}
-                        //await _coreServiceClient.MasterAccountTransaction(user.Id, credit.accountId, (decimal)credit.principal, MasterDescription.UserPaysCredit.ToString(), CancellationToken.None);
-                    }
+                }
+                catch (Exception exception)
+                {
+                    Console.WriteLine($"CreditPaymentWorker iteration failed: {exception.Message}");
                 }
             }
         }

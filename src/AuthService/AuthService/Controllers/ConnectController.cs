@@ -11,6 +11,7 @@ public sealed class ConnectController(IAuthService authService) : ControllerBase
 {
     [HttpPost("token")]
     [AllowAnonymous]
+    [Consumes("application/x-www-form-urlencoded")]
     public async Task<IActionResult> ConnectToken([FromForm] TokenRequest request, CancellationToken cancellationToken)
     {
         var response = await authService.IssueTokenAsync(request, cancellationToken);

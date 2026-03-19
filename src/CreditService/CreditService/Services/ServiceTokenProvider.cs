@@ -32,12 +32,19 @@ public sealed class ServiceTokenProvider(
             {
                 ["grant_type"] = "client_credentials",
                 ["client_id"] = clientId,
-                ["client_secret"] = clientSecret
+                ["client_secret"] = clientSecret,
+                ["GrantType"] = "client_credentials",
+                ["ClientId"] = clientId,
+                ["ClientSecret"] = clientSecret
             })
         };
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new HttpRequestException($"AuthService token request failed: {(int)response.StatusCode} {response.StatusCode}. {error}", null, response.StatusCode);
+        }
 
         var tokenPayload = await response.Content.ReadFromJsonAsync<OAuthTokenResponse>(cancellationToken);
         if (tokenPayload == null || string.IsNullOrWhiteSpace(tokenPayload.AccessToken))
