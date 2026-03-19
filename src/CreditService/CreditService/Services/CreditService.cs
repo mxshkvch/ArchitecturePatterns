@@ -236,7 +236,12 @@ namespace CreditService.Services
                 credit.remainingAmount = Math.Round(credit.remainingAmount, 2, MidpointRounding.AwayFromZero);
 
                 if (credit.remainingAmount <= 0)
+                {
                     credit.status = StatusCredit.PAID;
+                    int creditHistory = await _userServiceClient.ChangeCreditHistory(credit.userId, plusRating * 5, CancellationToken.None);
+                    Console.WriteLine($"CreditHistory got better - credit history == {creditHistory}");
+                }
+
 
                 //добавить в транзакции
                 //транзакции внутри masteraccounttransaction
