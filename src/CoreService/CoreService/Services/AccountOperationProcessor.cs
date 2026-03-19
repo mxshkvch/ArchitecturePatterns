@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CoreService.Services;
 
-public sealed class AccountOperationProcessor(AppDbContext dbContext) : IAccountOperationProcessor
+public sealed class AccountOperationProcessor(
+    AppDbContext dbContext,
+    IExchangeRateService exchangeRateService) : IAccountOperationProcessor
 {
     public async Task ProcessAsync(AccountOperationMessage message, CancellationToken cancellationToken)
     {
@@ -108,8 +110,15 @@ public sealed class AccountOperationProcessor(AppDbContext dbContext) : IAccount
             throw new InvalidOperationException("Insufficient funds");
         }
 
+        var creditAmount = message.Amount;
+        if (fromAccount.Currency != toAccount.Currency)
+        {
+            var rate = await exchangeRateService.GetRateAsync(fromAccount.Currency, toAccount.Currency, cancellationToken);
+            creditAmount = Math.Round(message.Amount * rate, 2);
+        }
+
         fromAccount.Balance = Math.Round(fromAccount.Balance - message.Amount, 2);
-        toAccount.Balance = Math.Round(toAccount.Balance + message.Amount, 2);
+        toAccount.Balance = Math.Round(toAccount.Balance + creditAmount, 2);
 
         dbContext.Transactions.AddRange(
             new Transaction
@@ -118,7 +127,7 @@ public sealed class AccountOperationProcessor(AppDbContext dbContext) : IAccount
                 AccountId = fromAccount.Id,
                 Type = TransactionType.TRANSFER,
                 Amount = message.Amount,
-                Description = $"Transfer to {toAccount.Id}",
+                Description = $"Transfer to {toAccount.Id} ({toAccount.Currency})",
                 Timestamp = DateTime.UtcNow,
                 BalanceAfter = fromAccount.Balance
             },
@@ -127,8 +136,8 @@ public sealed class AccountOperationProcessor(AppDbContext dbContext) : IAccount
                 Id = Guid.NewGuid(),
                 AccountId = toAccount.Id,
                 Type = TransactionType.TRANSFER,
-                Amount = message.Amount,
-                Description = $"Transfer from {fromAccount.Id}",
+                Amount = creditAmount,
+                Description = $"Transfer from {fromAccount.Id} ({fromAccount.Currency})",
                 Timestamp = DateTime.UtcNow,
                 BalanceAfter = toAccount.Balance
             });

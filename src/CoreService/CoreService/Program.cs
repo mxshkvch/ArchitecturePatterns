@@ -66,6 +66,13 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
+builder.Services.AddMemoryCache();
+builder.Services.Configure<ExchangeRateOptions>(builder.Configuration.GetSection("ExchangeRates"));
+builder.Services.AddHttpClient<IExchangeRateService, ExchangeRateService>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ExchangeRateOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+});
 builder.Services.AddScoped<IAccountOperationPublisher, RabbitMqAccountOperationPublisher>();
 builder.Services.AddScoped<IAccountOperationProcessor, AccountOperationProcessor>();
 builder.Services.AddHostedService<RabbitMqAccountOperationWorker>();
