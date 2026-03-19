@@ -283,6 +283,46 @@ namespace CreditService.Services
             return await BuildCreditsResponse(query, page, size);
         }
 
+        public async Task<DelinquenciesResponse> GetMyDelinquencies(int page, int size)
+        {
+            ValidatePagination(page, size);
+            await UpdateOverdueStatusesAsync();
+            var currentUser = await GetCurrentUserAsync();
+
+            var query = _context.Credits
+                .AsNoTracking()
+                .Where(x => x.userId == currentUser.Id && (x.status == StatusCredit.OVERDUE || x.status == StatusCredit.DEFAULTED));
+
+            return await BuildDelinquenciesResponse(query, page, size);
+        }
+
+        public async Task<DelinquenciesResponse> GetAllDelinquencies(int page, int size)
+        {
+            ValidatePagination(page, size);
+            await EnsureCurrentUserHasBackofficeRoleAsync();
+            await UpdateOverdueStatusesAsync();
+
+            var query = _context.Credits
+                .AsNoTracking()
+                .Where(x => x.status == StatusCredit.OVERDUE || x.status == StatusCredit.DEFAULTED);
+
+            return await BuildDelinquenciesResponse(query, page, size);
+        }
+
+        public async Task<CreditRatingResponse> GetMyCreditRating()
+        {
+            await UpdateOverdueStatusesAsync();
+            var currentUser = await GetCurrentUserAsync();
+            return await BuildCreditRatingAsync(currentUser.Id);
+        }
+
+        public async Task<CreditRatingResponse> GetCreditRatingByUser(Guid userId)
+        {
+            await EnsureCurrentUserHasBackofficeRoleAsync();
+            await UpdateOverdueStatusesAsync();
+            return await BuildCreditRatingAsync(userId);
+        }
+
         public async Task<CreditTariff> CreateNewTariff(CreateCreditTarrifRequest request)
         {
             if (request == null)
@@ -364,6 +404,105 @@ namespace CreditService.Services
             };
 
             return creditTariffResponse;
+        }
+
+        private async Task<DelinquenciesResponse> BuildDelinquenciesResponse(IQueryable<Credit> query, int page, int size)
+        {
+            var totalElements = await query.CountAsync();
+            var credits = await query
+                .OrderByDescending(x => x.endDate)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync();
+
+            var content = credits
+                .Select(x => new DelinquencyResponse
+                {
+                    CreditId = x.Id,
+                    UserId = x.userId,
+                    AccountId = x.accountId,
+                    DueDate = x.endDate,
+                    RemainingAmount = x.remainingAmount,
+                    DaysOverdue = Math.Max(0, (int)Math.Floor((DateTimeOffset.UtcNow - x.endDate).TotalDays)),
+                    Status = x.status
+                })
+                .ToArray();
+
+            return new DelinquenciesResponse
+            {
+                Content = content,
+                Page = new PageInfo
+                {
+                    page = page,
+                    size = size,
+                    totalElements = totalElements,
+                    totalPages = (int)Math.Ceiling(totalElements / (double)size)
+                }
+            };
+        }
+
+        private async Task<CreditRatingResponse> BuildCreditRatingAsync(Guid userId)
+        {
+            var credits = await _context.Credits
+                .AsNoTracking()
+                .Where(x => x.userId == userId)
+                .ToListAsync();
+
+            var total = credits.Count;
+            var paid = credits.Count(x => x.status == StatusCredit.PAID);
+            var active = credits.Count(x => x.status == StatusCredit.ACTIVE);
+            var overdue = credits.Count(x => x.status == StatusCredit.OVERDUE);
+            var defaulted = credits.Count(x => x.status == StatusCredit.DEFAULTED);
+
+            var probability = 0.5d;
+            if (total > 0)
+            {
+                probability = (paid + 0.5d * active + 0.25d * overdue) / total;
+            }
+
+            probability -= defaulted * 0.1d;
+            probability = Math.Max(0.01d, Math.Min(0.99d, probability));
+
+            return new CreditRatingResponse
+            {
+                UserId = userId,
+                RepaymentProbability = Math.Round(probability, 4, MidpointRounding.AwayFromZero),
+                ActiveCredits = active,
+                PaidCredits = paid,
+                OverdueCredits = overdue,
+                DefaultedCredits = defaulted,
+                CalculatedAt = DateTimeOffset.UtcNow
+            };
+        }
+
+        private async Task UpdateOverdueStatusesAsync()
+        {
+            var utcNow = DateTimeOffset.UtcNow;
+
+            var toOverdue = await _context.Credits
+                .Where(x => x.status == StatusCredit.ACTIVE && x.endDate < utcNow && x.remainingAmount > 0)
+                .ToListAsync();
+
+            var toDefaulted = await _context.Credits
+                .Where(x => x.status == StatusCredit.OVERDUE && x.endDate < utcNow.AddDays(-30) && x.remainingAmount > 0)
+                .ToListAsync();
+
+            if (toOverdue.Count == 0 && toDefaulted.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var credit in toOverdue)
+            {
+                credit.status = StatusCredit.OVERDUE;
+            }
+
+            foreach (var credit in toDefaulted)
+            {
+                credit.status = StatusCredit.DEFAULTED;
+            }
+
+            await _context.SaveChangesAsync();
         }
 
         private void ValidatePagination(int page, int size)

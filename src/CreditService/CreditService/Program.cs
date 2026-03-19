@@ -61,6 +61,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddHostedService<CreditPaymentWorker>();
+builder.Services.AddHostedService<CreditDelinquencyWorker>();
 
 builder.Services.AddDbContext<CreditDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));

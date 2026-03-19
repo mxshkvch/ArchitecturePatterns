@@ -55,4 +55,34 @@ public sealed class CreditController(ICreditService creditService) : ControllerB
         var tariff = await creditService.CreateNewTariff(request);
         return CreatedAtAction(nameof(CreateCreditTariff), new { id = tariff.Id }, tariff);
     }
+
+    [HttpGet("credits/delinquencies/my")]
+    public async Task<ActionResult<DelinquenciesResponse>> GetMyDelinquencies([FromQuery] int page = 1, [FromQuery] int size = 10)
+    {
+        var response = await creditService.GetMyDelinquencies(page, size);
+        return Ok(response);
+    }
+
+    [HttpGet("admin/credits/delinquencies")]
+    [Authorize(Roles = "ADMIN,EMPLOYEE")]
+    public async Task<ActionResult<DelinquenciesResponse>> GetAllDelinquencies([FromQuery] int page = 1, [FromQuery] int size = 10)
+    {
+        var response = await creditService.GetAllDelinquencies(page, size);
+        return Ok(response);
+    }
+
+    [HttpGet("credits/rating/my")]
+    public async Task<ActionResult<CreditRatingResponse>> GetMyCreditRating()
+    {
+        var response = await creditService.GetMyCreditRating();
+        return Ok(response);
+    }
+
+    [HttpGet("admin/credits/rating/{userId:guid}")]
+    [Authorize(Roles = "ADMIN,EMPLOYEE")]
+    public async Task<ActionResult<CreditRatingResponse>> GetCreditRatingByUser(Guid userId)
+    {
+        var response = await creditService.GetCreditRatingByUser(userId);
+        return Ok(response);
+    }
 }
