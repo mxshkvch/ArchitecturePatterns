@@ -11,6 +11,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
+using CoreService.Configurations;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,6 +66,26 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
+builder.Services.AddScoped<IAccountOperationPublisher, RabbitMqAccountOperationPublisher>();
+builder.Services.AddScoped<IAccountOperationProcessor, AccountOperationProcessor>();
+builder.Services.AddHostedService<RabbitMqAccountOperationWorker>();
+
+builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMq"));
+builder.Services.AddSingleton<IConnection>(_ =>
+{
+    var options = builder.Configuration.GetSection("RabbitMq").Get<RabbitMqOptions>() ?? new RabbitMqOptions();
+    var factory = new ConnectionFactory
+    {
+        HostName = options.HostName,
+        Port = options.Port,
+        UserName = options.UserName,
+        Password = options.Password,
+        AutomaticRecoveryEnabled = true,
+        TopologyRecoveryEnabled = true
+    };
+
+    return factory.CreateConnectionAsync().GetAwaiter().GetResult();
+});
 
 var app = builder.Build();
 
