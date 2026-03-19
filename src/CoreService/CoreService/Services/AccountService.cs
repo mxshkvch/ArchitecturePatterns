@@ -36,7 +36,11 @@ public class AccountService : IAccountService
         //проверить статус счета
         //проверяю пока со счета на счет одного и того же человека - должно работать при переводе на любой другой счет
 
-
+        
+        if (fromAccountId == toAccountId)
+        {
+            throw new InvalidOperationException("You can not transfer money to the same account");
+        }
 
         Account? fromAccount = _context.Accounts.Where(a => a.Id == fromAccountId).FirstOrDefault();
         Account? toAccount = _context.Accounts.Where(a => a.Id == toAccountId).FirstOrDefault();
