@@ -48,7 +48,7 @@ namespace CreditService.Services
                         }
 
                         var credits = await context.Credits
-                            .Where(c => c.status == StatusCredit.ACTIVE && c.userId == user.Id)
+                            .Where(c => c.status == StatusCredit.ACTIVE && c.userId == user.Id && c.accountId != Guid.Empty)
                             .ToListAsync(stoppingToken);
 
                         foreach (Credit credit in credits)

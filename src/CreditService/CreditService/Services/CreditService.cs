@@ -199,8 +199,14 @@ namespace CreditService.Services
             try
             {
                 if (creditId == Guid.Empty)
-                    //throw new ArgumentException("CreditId cannot be empty");
-                    Console.WriteLine("CreditId cannot be empty");
+                {
+                    return;
+                }
+
+                if (accountId == Guid.Empty)
+                {
+                    return;
+                }
 
                 Guid currentUser = await _context.Credits
                     .Where(c => c.Id == creditId)
@@ -216,12 +222,14 @@ namespace CreditService.Services
                     .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
 
                 if (credit == null)
-                    //throw new KeyNotFoundException("Credit not found");
-                    Console.WriteLine("Credit not found");
+                {
+                    return;
+                }
 
                 if (credit.status != StatusCredit.ACTIVE)
-                    //throw new InvalidOperationException("Credit is not active");
-                    Console.WriteLine("Credit is not active");
+                {
+                    return;
+                }
 
                 double amountToPay = credit.principal * credit.interestRate *
                     ((credit.endDate - credit.startDate).TotalDays / 365.0);
@@ -231,37 +239,30 @@ namespace CreditService.Services
                 if (amountToPay > credit.remainingAmount)
                     amountToPay = credit.remainingAmount;
 
+                if (amountToPay <= 0)
+                {
+                    return;
+                }
+
                 Guid accountIdAnswer = await _coreServiceClient.GetUserAccountAsync(currentUser, accountId, CancellationToken.None);
 
                 if (accountIdAnswer == _FAILED_CORE)
-                    //throw new InvalidOperationException("Account does not exist")
-                    Console.WriteLine("Account does not exist");
-
-                //bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(
-                //    currentUser,
-                //    accountIdAnswer,
-                //    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero),
-                //    CancellationToken.None);
+                {
+                    return;
+                }
 
                 bool isPaid = await _coreServiceClient.MasterAccountTransaction(currentUser, accountId, (decimal)amountToPay, MasterDescription.UserPaysCredit.ToString(), CancellationToken.None);
 
                 if (!isPaid)
-                    //throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
-                    Console.WriteLine("Payment is not possible. Issue in balance or masteraccount");
+                {
+                    return;
+                }
 
                 credit.remainingAmount -= amountToPay;
-                //проверить корректно ли округляется+
                 credit.remainingAmount = Math.Round(credit.remainingAmount, 2, MidpointRounding.AwayFromZero);
 
                 if (credit.remainingAmount <= 0)
                     credit.status = StatusCredit.PAID;
-
-                //добавить в транзакции
-                //транзакции внутри masteraccounttransaction
-
-                //await _coreServiceClient.AddTransactionPayment(currentUser,
-                //    accountIdAnswer,
-                //    Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero), CancellationToken.None);
 
                 _context.Credits.Update(credit);
 
