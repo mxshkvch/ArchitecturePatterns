@@ -5,6 +5,7 @@ using CoreService.Configurations;
 using CoreService.Messaging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace CoreService.Services;
 
@@ -32,19 +33,13 @@ public sealed class RabbitMqAccountOperationWorker(
 
         await channel.BasicQosAsync(0, 10, false, stoppingToken);
 
-        while (!stoppingToken.IsCancellationRequested)
+        var consumer = new AsyncEventingBasicConsumer(channel);
+
+        consumer.ReceivedAsync += async (sender, eventArgs) =>
         {
-            var result = await channel.BasicGetAsync(queue: queueName, autoAck: false, cancellationToken: stoppingToken);
-
-            if (result == null)
-            {
-                await Task.Delay(200, stoppingToken);
-                continue;
-            }
-
             try
             {
-                var message = JsonSerializer.Deserialize<AccountOperationMessage>(result.Body.Span);
+                var message = JsonSerializer.Deserialize<AccountOperationMessage>(eventArgs.Body.Span);
                 if (message == null)
                 {
                     throw new InvalidOperationException("Invalid operation payload");
@@ -55,13 +50,21 @@ public sealed class RabbitMqAccountOperationWorker(
 
                 await processor.ProcessAsync(message, stoppingToken);
                 await operationNotificationService.NotifyOperationInvalidatedAsync(message, stoppingToken);
-                await channel.BasicAckAsync(result.DeliveryTag, false, stoppingToken);
+                await channel.BasicAckAsync(eventArgs.DeliveryTag, false, stoppingToken);
             }
             catch (Exception exception)
             {
                 logger.LogError(exception, "Failed to process account operation message");
-                await channel.BasicNackAsync(result.DeliveryTag, false, true, stoppingToken);
+                await channel.BasicNackAsync(eventArgs.DeliveryTag, false, true, stoppingToken);
             }
-        }
+        };
+
+        await channel.BasicConsumeAsync(
+            queue: queueName,
+            autoAck: false,
+            consumer: consumer,
+            cancellationToken: stoppingToken);
+
+        await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 }
