@@ -38,22 +38,6 @@ public sealed class UserManagementService : IUserManagementService
         return new UsersResponse(users.Select(x => x.ToResponse()).ToArray(), page);
     }
 
-    public async Task<UserResponse> CreateUserAsync(RegisterClientRequest request, CancellationToken cancellationToken)
-    {
-        await EnsureCurrentUserIsAdminAsync(cancellationToken);
-        await EnsureEmailUniqueAsync(request.Email, cancellationToken);
-
-        var user = BuildUser(Guid.NewGuid(), request.Email, request.Role, request.FirstName, request.LastName, request.Phone);
-
-        if (user.Role != UserRole.CLIENT && user.Role != UserRole.EMPLOYEE)
-            throw new InvalidOperationException("User can have only EMPLOYEE or CLIENT role.");
-
-        await PersistCreatedUserAsync(user, cancellationToken);
-
-        _logger.LogInformation("Admin created user {UserId} with role {Role}", user.Id, user.Role);
-        return user.ToResponse();
-    }
-
     public async Task<UserResponse> CreateUserProfileAsync(CreateUserProfileRequest request, CancellationToken cancellationToken)
     {
         await EnsureEmailUniqueAsync(request.Email, cancellationToken);

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserService.Contracts.Common.Abstractions;
+using UserService.Contracts.Common;
 using UserService.Contracts.Requests;
 using UserService.Contracts.Responses;
 
@@ -18,14 +19,6 @@ public sealed class UserController(IUserManagementService userManagementService)
     {
         var response = await userManagementService.GetUsersAsync(query, cancellationToken);
         return Ok(response);
-    }
-
-    [HttpPost]
-    [ProducesResponseType<UserResponse>(StatusCodes.Status201Created)]
-    public async Task<ActionResult<UserResponse>> CreateUser([FromBody] RegisterClientRequest request, CancellationToken cancellationToken)
-    {
-        var response = await userManagementService.CreateUserAsync(request, cancellationToken);
-        return Created($"/admin/users/{response.Id}", response);
     }
 
     [HttpPatch("{userId:guid}/status")]
