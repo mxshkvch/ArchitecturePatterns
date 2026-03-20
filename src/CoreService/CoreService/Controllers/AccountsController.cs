@@ -28,6 +28,29 @@ public sealed class AccountsController(
             return BadRequest("Amount must be greater than zero");
         }
 
+        if (fromAccountId == toAccountId)
+        {
+            return BadRequest("Source and target accounts must differ");
+        }
+
+        try
+        {
+            await accountService.GetAccountAsync(fromAccountId, userId, false);
+        }
+        catch (InvalidOperationException)
+        {
+            return NotFound("Source account not found");
+        }
+
+        try
+        {
+            await accountService.GetAccountAsync(toAccountId, userId, true);
+        }
+        catch (InvalidOperationException)
+        {
+            return NotFound("Target account not found");
+        }
+
         var operation = new AccountOperationMessage
         {
             OperationId = Guid.NewGuid(),

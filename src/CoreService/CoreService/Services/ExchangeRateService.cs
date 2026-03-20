@@ -1,9 +1,9 @@
 using CoreService.Abstractions;
 using CoreService.Configurations;
-using CoreService.DTOs.Responses;
 using CoreService.Enums;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace CoreService.Services;
 
@@ -25,8 +25,8 @@ public sealed class ExchangeRateService(
             return cachedRate;
         }
 
-        var requestUri = $"/v1/latest?base={from}&symbols={to}";
-        var response = await httpClient.GetFromJsonAsync<ExchangeRatesResponse>(requestUri, cancellationToken)
+        var requestUri = $"/v6/latest/{from}";
+        var response = await httpClient.GetFromJsonAsync<ExchangeRatesApiResponse>(requestUri, cancellationToken)
             ?? throw new InvalidOperationException("Exchange rate response is empty");
 
         if (!response.Rates.TryGetValue(to.ToString(), out var rate) || rate <= 0)
@@ -37,5 +37,10 @@ public sealed class ExchangeRateService(
         memoryCache.Set(cacheKey, rate, TimeSpan.FromMinutes(Math.Max(1, options.Value.CacheMinutes)));
 
         return rate;
+    }
+
+    private sealed class ExchangeRatesApiResponse
+    {
+        public Dictionary<string, decimal> Rates { get; set; } = new();
     }
 }
