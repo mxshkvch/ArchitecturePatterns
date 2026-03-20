@@ -21,4 +21,7 @@ public sealed class TokenRequest
 
     [FromForm(Name = "redirect_uri")]
     public string? RedirectUri { get; set; }
+
+    [FromForm(Name = "refresh_token")]
+    public string? RefreshToken { get; set; }
 }

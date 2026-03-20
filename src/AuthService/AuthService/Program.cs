@@ -131,13 +131,16 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    var userDirectoryClient = scope.ServiceProvider.GetRequiredService<IUserDirectoryClient>();
     dbContext.Database.Migrate();
+
+    var MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
     if (!dbContext.Users.Any(u => u.Role == AuthService.Enums.UserRole.ADMIN))
     {
         var admin = new AuthService.Entities.User
         {
-            Id = Guid.NewGuid(),
+            Id = MASTER_ACCOUNT,
             Email = "admin@system.local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
             Role = AuthService.Enums.UserRole.ADMIN,
@@ -147,7 +150,49 @@ using (var scope = app.Services.CreateScope())
 
         dbContext.Users.Add(admin);
         dbContext.SaveChanges();
+
+        var profileRequest = new AuthService.DTOs.Requests.CreateUserProfileRequest
+        {
+            UserId = admin.Id,
+            Email = admin.Email,
+            Role = admin.Role,
+            FirstName = "System",
+            LastName = "Administrator",
+            Phone = null
+        };
+
+        var serviceToken = GenerateSeedServiceToken();
+        userDirectoryClient.CreateUserProfileAsync(profileRequest, serviceToken, CancellationToken.None).Wait();
     }
+}
+
+string GenerateSeedServiceToken()
+{
+    var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new ArgumentException("Jwt:Key cannot be null");
+    var key = Encoding.ASCII.GetBytes(jwtKey);
+    var issuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
+    var audience = builder.Configuration["Jwt:Audience"] ?? "black.api";
+
+    var claims = new List<System.Security.Claims.Claim>
+    {
+        new(System.Security.Claims.ClaimTypes.NameIdentifier, "auth-service"),
+        new(System.Security.Claims.ClaimTypes.Email, "auth-service"),
+        new(System.Security.Claims.ClaimTypes.Role, "SERVICE")
+    };
+
+    var tokenDescriptor = new Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor
+    {
+        Subject = new System.Security.Claims.ClaimsIdentity(claims),
+        Expires = DateTime.UtcNow.AddMinutes(10),
+        Issuer = issuer,
+        Audience = audience,
+        SigningCredentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(
+            new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+            Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256Signature)
+    };
+
+    var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+    return tokenHandler.WriteToken(tokenHandler.CreateToken(tokenDescriptor));
 }
 
 await app.RunAsync();

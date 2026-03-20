@@ -11,6 +11,7 @@ public class AuthDbContext : DbContext
 
     public DbSet<User> Users { get; set; }
     public DbSet<AuthorizationCode> AuthorizationCodes { get; set; }
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,5 +22,8 @@ public class AuthDbContext : DbContext
 
         modelBuilder.Entity<AuthorizationCode>().HasKey(a => a.Code);
         modelBuilder.Entity<AuthorizationCode>().HasIndex(a => a.ExpiresAt);
+
+        modelBuilder.Entity<RefreshToken>().HasKey(r => r.Token);
+        modelBuilder.Entity<RefreshToken>().HasIndex(r => r.ExpiresAt);
     }
 }

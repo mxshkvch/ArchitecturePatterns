@@ -155,7 +155,6 @@ public sealed class AuthService(
             }
 
             authCode.IsUsed = true;
-            await context.SaveChangesAsync(cancellationToken);
 
             var user = await context.Users.FindAsync(new object[] { authCode.UserId }, cancellationToken)
                 ?? throw new UnauthorizedAccessException("User not found");
@@ -165,14 +164,88 @@ public sealed class AuthService(
                 throw new UnauthorizedAccessException("User is not active");
             }
 
+            var refreshToken = await CreateRefreshTokenAsync(user.Id, authCode.ClientId, cancellationToken);
+
+            await context.SaveChangesAsync(cancellationToken);
+
             return new TokenResponse
             {
                 AccessToken = GenerateAccessToken(user.Id.ToString(), user.Email, user.Role.ToString(), TimeSpan.FromHours(2)),
-                ExpiresIn = 7200
+                ExpiresIn = 7200,
+                RefreshToken = refreshToken.Token
+            };
+        }
+
+        if (string.Equals(request.GrantType, "refresh_token", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(request.RefreshToken) ||
+                string.IsNullOrWhiteSpace(request.ClientId))
+            {
+                throw new UnauthorizedAccessException("refresh_token and client_id are required");
+            }
+
+            var refreshToken = await context.RefreshTokens
+                .FirstOrDefaultAsync(r => r.Token == request.RefreshToken, cancellationToken);
+
+            if (refreshToken == null)
+            {
+                throw new UnauthorizedAccessException("Invalid refresh token");
+            }
+
+            if (refreshToken.IsRevoked)
+            {
+                throw new UnauthorizedAccessException("Refresh token has been revoked");
+            }
+
+            if (refreshToken.ExpiresAt < DateTime.UtcNow)
+            {
+                throw new UnauthorizedAccessException("Refresh token has expired");
+            }
+
+            if (refreshToken.ClientId != request.ClientId)
+            {
+                throw new UnauthorizedAccessException("client_id does not match");
+            }
+
+            refreshToken.IsRevoked = true;
+
+            var user = await context.Users.FindAsync(new object[] { refreshToken.UserId }, cancellationToken)
+                ?? throw new UnauthorizedAccessException("User not found");
+
+            if (user.Status != UserStatus.ACTIVE)
+            {
+                throw new UnauthorizedAccessException("User is not active");
+            }
+
+            var newRefreshToken = await CreateRefreshTokenAsync(user.Id, refreshToken.ClientId, cancellationToken);
+
+            await context.SaveChangesAsync(cancellationToken);
+
+            return new TokenResponse
+            {
+                AccessToken = GenerateAccessToken(user.Id.ToString(), user.Email, user.Role.ToString(), TimeSpan.FromHours(2)),
+                ExpiresIn = 7200,
+                RefreshToken = newRefreshToken.Token
             };
         }
 
         throw new UnauthorizedAccessException("Unsupported grant_type");
+    }
+
+    private async Task<RefreshToken> CreateRefreshTokenAsync(Guid userId, string clientId, CancellationToken cancellationToken)
+    {
+        var token = new RefreshToken
+        {
+            Token = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
+            UserId = userId,
+            ClientId = clientId,
+            ExpiresAt = DateTime.UtcNow.AddDays(30),
+            IsRevoked = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.RefreshTokens.Add(token);
+        return token;
     }
 
     public async Task<AuthorizeResponse> AuthorizeAsync(AuthorizeRequest request, CancellationToken cancellationToken)
