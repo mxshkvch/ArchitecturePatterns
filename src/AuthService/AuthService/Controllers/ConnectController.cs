@@ -9,6 +9,19 @@ namespace AuthService.Controllers;
 [Route("connect")]
 public sealed class ConnectController(IAuthService authService) : ControllerBase
 {
+    [HttpPost("authorize")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConnectAuthorize([FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
+    {
+        var response = await authService.AuthorizeAsync(request, cancellationToken);
+        return Ok(new
+        {
+            code = response.Code,
+            state = response.State,
+            redirect_uri = response.RedirectUri
+        });
+    }
+
     [HttpPost("token")]
     [AllowAnonymous]
     [Consumes("application/x-www-form-urlencoded")]

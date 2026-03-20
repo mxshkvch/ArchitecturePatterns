@@ -9,4 +9,5 @@ public interface IAuthService
     Task<RegisterResponse> RegisterClientAsync(RegisterClientRequest request, CancellationToken cancellationToken);
     Task<RegisterResponse> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken);
     Task<TokenResponse> IssueTokenAsync(TokenRequest request, CancellationToken cancellationToken);
+    Task<AuthorizeResponse> AuthorizeAsync(AuthorizeRequest request, CancellationToken cancellationToken);
 }

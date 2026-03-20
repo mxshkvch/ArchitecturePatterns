@@ -93,26 +93,6 @@ public sealed class AuthService(
 
     public async Task<TokenResponse> IssueTokenAsync(TokenRequest request, CancellationToken cancellationToken)
     {
-        if (string.Equals(request.GrantType, "password", StringComparison.OrdinalIgnoreCase))
-        {
-            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-            {
-                throw new UnauthorizedAccessException("Username and password are required");
-            }
-
-            var loginToken = await LoginAsync(new LoginRequest
-            {
-                Email = request.Username,
-                Password = request.Password
-            }, cancellationToken);
-
-            return new TokenResponse
-            {
-                AccessToken = loginToken,
-                ExpiresIn = 7200
-            };
-        }
-
         if (string.Equals(request.GrantType, "client_credentials", StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(request.ClientId) || string.IsNullOrWhiteSpace(request.ClientSecret))
@@ -137,7 +117,113 @@ public sealed class AuthService(
             };
         }
 
+        if (string.Equals(request.GrantType, "authorization_code", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(request.Code) ||
+                string.IsNullOrWhiteSpace(request.ClientId) ||
+                string.IsNullOrWhiteSpace(request.RedirectUri))
+            {
+                throw new UnauthorizedAccessException("code, client_id and redirect_uri are required");
+            }
+
+            var authCode = await context.AuthorizationCodes
+                .FirstOrDefaultAsync(a => a.Code == request.Code, cancellationToken);
+
+            if (authCode == null)
+            {
+                throw new UnauthorizedAccessException("Invalid authorization code");
+            }
+
+            if (authCode.IsUsed)
+            {
+                throw new UnauthorizedAccessException("Authorization code has already been used");
+            }
+
+            if (authCode.ExpiresAt < DateTime.UtcNow)
+            {
+                throw new UnauthorizedAccessException("Authorization code has expired");
+            }
+
+            if (authCode.ClientId != request.ClientId)
+            {
+                throw new UnauthorizedAccessException("client_id does not match");
+            }
+
+            if (authCode.RedirectUri != request.RedirectUri)
+            {
+                throw new UnauthorizedAccessException("redirect_uri does not match");
+            }
+
+            authCode.IsUsed = true;
+            await context.SaveChangesAsync(cancellationToken);
+
+            var user = await context.Users.FindAsync(new object[] { authCode.UserId }, cancellationToken)
+                ?? throw new UnauthorizedAccessException("User not found");
+
+            if (user.Status != UserStatus.ACTIVE)
+            {
+                throw new UnauthorizedAccessException("User is not active");
+            }
+
+            return new TokenResponse
+            {
+                AccessToken = GenerateAccessToken(user.Id.ToString(), user.Email, user.Role.ToString(), TimeSpan.FromHours(2)),
+                ExpiresIn = 7200
+            };
+        }
+
         throw new UnauthorizedAccessException("Unsupported grant_type");
+    }
+
+    public async Task<AuthorizeResponse> AuthorizeAsync(AuthorizeRequest request, CancellationToken cancellationToken)
+    {
+        var clients = configuration.GetSection("OAuth:Clients").Get<List<OAuthClientRequest>>() ?? [];
+        var client = clients.FirstOrDefault(x => x.ClientId == request.ClientId);
+
+        if (client == null)
+        {
+            throw new ArgumentException("Invalid client_id");
+        }
+
+        if (!client.RedirectUris.Contains(request.RedirectUri))
+        {
+            throw new ArgumentException("Invalid redirect_uri");
+        }
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+        if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            throw new UnauthorizedAccessException("Invalid credentials");
+        }
+
+        if (user.Status != UserStatus.ACTIVE)
+        {
+            throw new UnauthorizedAccessException("User is not active");
+        }
+
+        var code = Guid.NewGuid().ToString("N");
+
+        var authCode = new AuthorizationCode
+        {
+            Code = code,
+            ClientId = request.ClientId,
+            UserId = user.Id,
+            RedirectUri = request.RedirectUri,
+            Scope = request.Scope,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+            IsUsed = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        context.AuthorizationCodes.Add(authCode);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return new AuthorizeResponse
+        {
+            Code = code,
+            State = request.State,
+            RedirectUri = request.RedirectUri
+        };
     }
 
     private string GenerateAccessToken(string subject, string email, string role, TimeSpan lifetime)

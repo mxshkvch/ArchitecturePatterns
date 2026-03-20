@@ -90,6 +90,15 @@ services:
       - OAuth__Clients__0__ClientId=credit-service
       - OAuth__Clients__0__ClientSecret=credit-service-secret
       - OAuth__Clients__0__Role=SERVICE
+      - OAuth__Clients__0__RedirectUris__0=
+      - OAuth__Clients__1__ClientId=client-bank
+      - OAuth__Clients__1__ClientSecret=
+      - OAuth__Clients__1__Role=CLIENT
+      - OAuth__Clients__1__RedirectUris__0=http://localhost:3000/callback
+      - OAuth__Clients__2__ClientId=staff-service
+      - OAuth__Clients__2__ClientSecret=
+      - OAuth__Clients__2__Role=EMPLOYEE
+      - OAuth__Clients__2__RedirectUris__0=http://localhost:3001/callback
     depends_on:
       postgres:
         condition: service_healthy
