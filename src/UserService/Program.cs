@@ -141,7 +141,7 @@ using (var scope = app.Services.CreateScope())
         {
             Id = MASTER_ACCOUNT,
             Email = "admin@system.local",
-            PasswordHash = string.Empty,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
             FirstName = "System",
             LastName = "Administrator",
             Phone = null,

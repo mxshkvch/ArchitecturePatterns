@@ -12,35 +12,42 @@ public sealed class CreditDelinquencyWorker(IServiceScopeFactory serviceScopeFac
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            using var scope = serviceScopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
-
-            var now = DateTimeOffset.UtcNow;
-
-            var toOverdue = await dbContext.Credits
-                .Where(x => x.status == StatusCredit.ACTIVE && x.endDate < now && x.remainingAmount > 0)
-                .ToListAsync(stoppingToken);
-
-            var toDefaulted = await dbContext.Credits
-                .Where(x => x.status == StatusCredit.OVERDUE && x.endDate < now.AddDays(-30) && x.remainingAmount > 0)
-                .ToListAsync(stoppingToken);
-
-            if (toOverdue.Count == 0 && toDefaulted.Count == 0)
+            try
             {
-                continue;
-            }
+                using var scope = serviceScopeFactory.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
 
-            foreach (var credit in toOverdue)
+                var now = DateTimeOffset.UtcNow;
+
+                var toOverdue = await dbContext.Credits
+                    .Where(x => x.status == StatusCredit.ACTIVE && x.endDate < now && x.remainingAmount > 0)
+                    .ToListAsync(stoppingToken);
+
+                var toDefaulted = await dbContext.Credits
+                    .Where(x => x.status == StatusCredit.OVERDUE && x.endDate < now.AddDays(-30) && x.remainingAmount > 0)
+                    .ToListAsync(stoppingToken);
+
+                if (toOverdue.Count == 0 && toDefaulted.Count == 0)
+                {
+                    continue;
+                }
+
+                foreach (var credit in toOverdue)
+                {
+                    credit.status = StatusCredit.OVERDUE;
+                }
+
+                foreach (var credit in toDefaulted)
+                {
+                    credit.status = StatusCredit.DEFAULTED;
+                }
+
+                await dbContext.SaveChangesAsync(stoppingToken);
+            }
+            catch (Exception exception)
             {
-                credit.status = StatusCredit.OVERDUE;
+                Console.WriteLine($"CreditDelinquencyWorker iteration failed: {exception.Message}");
             }
-
-            foreach (var credit in toDefaulted)
-            {
-                credit.status = StatusCredit.DEFAULTED;
-            }
-
-            await dbContext.SaveChangesAsync(stoppingToken);
         }
     }
 }

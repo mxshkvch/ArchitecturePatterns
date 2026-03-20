@@ -132,6 +132,22 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
     dbContext.Database.Migrate();
+
+    if (!dbContext.Users.Any(u => u.Role == AuthService.Enums.UserRole.ADMIN))
+    {
+        var admin = new AuthService.Entities.User
+        {
+            Id = Guid.NewGuid(),
+            Email = "admin@system.local",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
+            Role = AuthService.Enums.UserRole.ADMIN,
+            Status = AuthService.Enums.UserStatus.ACTIVE,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        dbContext.Users.Add(admin);
+        dbContext.SaveChanges();
+    }
 }
 
 await app.RunAsync();
