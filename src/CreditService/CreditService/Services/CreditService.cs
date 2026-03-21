@@ -83,7 +83,7 @@ namespace CreditService.Services
                 throw new KeyNotFoundException("User's Account does not exists");
             }
 
-            var remainingAmountMoney = request.amount * (1 + tariff.interestRate * (DateTime.UtcNow.AddDays(request.term) - DateTime.UtcNow).TotalDays / 365.0);
+            var remainingAmountMoney = request.amount * (1 + (tariff.interestRate / 100.0) * (DateTime.UtcNow.AddMonths(request.term) - DateTime.UtcNow).TotalDays / 365.0);
 
             var credit = new Credit
             {
@@ -95,7 +95,7 @@ namespace CreditService.Services
                 interestRate = tariff.interestRate,
                 status = StatusCredit.ACTIVE,
                 startDate = DateTime.UtcNow,
-                endDate = DateTime.UtcNow.AddDays(request.term),
+                endDate = DateTime.UtcNow.AddMonths(request.term),
                 accountId = accountId//
             };
 
@@ -231,7 +231,7 @@ namespace CreditService.Services
                     return;
                 }
 
-                double amountToPay = credit.principal * credit.interestRate *
+                double amountToPay = credit.principal * (credit.interestRate / 100.0) *
                     ((credit.endDate - credit.startDate).TotalDays / 365.0);
 
                 amountToPay = Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero);
