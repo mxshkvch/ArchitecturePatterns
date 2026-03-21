@@ -10,7 +10,7 @@ export type Credit = {
   interestRate: number;
   startDate: string;
   endDate: string;
-  status: "ACTIVE" | "CLOSED";
+  status: "ACTIVE" | "PAID" | "OVERDUE" | "DEFAULTED";
 };
 
 export type CreditsResponse = {
@@ -67,10 +67,10 @@ export const fetchTariffs = async (page = 1, size = 10): Promise<Tariff[]> => {
   return res.data.content;
 };
 
-export const applyCredit = async (tariffId: string, amount: number, term: number) => {
+export const applyCredit = async (tariffId: string, accountId: string, amount: number, term: number) => {
   const res = await axios.post(
     `${API_BASE}/credits/apply`,
-    { tariffId, amount, term },
+    { tariffId, accountId, amount, term },
     { headers: getAuthHeaders() }
   );
   return res.data;
