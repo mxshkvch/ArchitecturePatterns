@@ -36,7 +36,7 @@ export type Tariff = {
   status: TariffStatus;
 };
 
-const API_BASE = "http://localhost:5107";
+const API_BASE = "http://89.23.105.66:5107";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("accessToken");

@@ -21,7 +21,7 @@ export type AccountsResponse = {
   };
 };
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "http://89.23.105.66:5000/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("accessToken");
@@ -36,7 +36,16 @@ export const fetchAccounts = async (page: number, size: number): Promise<Account
   return response.data;
 };
 
-export const createAccount = async (currency: "RUB" | "USD", initialDeposit: number) => {
+export const fetchAllAccounts = async (): Promise<Account[]> => {
+  const response = await axios.get<AccountsResponse>(`${API_BASE}/accounts`, {
+    params: { page: 0, size: 1000 },
+    headers: getAuthHeaders(),
+  });
+
+  return response.data.content;
+};
+
+export const createAccount = async (currency: "RUB" | "USD" | "EUR", initialDeposit: number) => {
   const response = await axios.post(`${API_BASE}/accounts`, {
     Currency: currency,
     InitialDeposit: initialDeposit,
@@ -79,5 +88,22 @@ export const closeAccount = async (accountId: string) => {
   const response = await axios.delete(`${API_BASE}/accounts/${accountId}`, {
     headers: getAuthHeaders(),
   });
+  return response.data;
+};
+
+export const transferBetweenAccounts = async (fromAccountId: string, toAccountId: string, amount: number) => {
+  const response = await axios.post(
+    `${API_BASE}/accounts/${fromAccountId}/transfer/${toAccountId}`,
+    {
+      amountMoney: amount,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      },
+    }
+  );
+
   return response.data;
 };
