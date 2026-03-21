@@ -7,6 +7,7 @@ import { fetchMyCredits, fetchTariffs, applyCredit } from "../../shared/lib/api/
 import { fetchAllAccounts } from "../../shared/lib/api/accounts";
 import type { Account  } from "../../shared/lib/api/accounts";
 import { useTheme } from "../../shared/lib/provider/themeProvider";
+import { useNavigate } from "react-router-dom";
 
 export const CreditsPage = () => {
   const [creditsResponse, setCreditsResponse] = useState<CreditsResponse>({
@@ -24,6 +25,7 @@ export const CreditsPage = () => {
 
   const { theme } = useTheme();
   const pageSize = 6;
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadCredits = async () => {
@@ -107,9 +109,21 @@ export const CreditsPage = () => {
           <h2>Мои кредиты</h2>
         </Col>
         <Col className="text-end">
-          <Button variant={theme === "DARK" ? "outline-light" : "success"} onClick={() => setShowApplyModal(true)}>
-            Взять кредит
-          </Button>
+          <div className="d-flex justify-content-end gap-2">
+            <Button
+              variant={theme === "DARK" ? "outline-light" : "info"}
+              onClick={() => navigate("/credits/analytics")}
+            >
+              Рейтинг и просрочки
+            </Button>
+
+            <Button
+              variant={theme === "DARK" ? "outline-light" : "success"}
+              onClick={() => setShowApplyModal(true)}
+            >
+              Взять кредит
+            </Button>
+          </div>
         </Col>
       </Row>
 
