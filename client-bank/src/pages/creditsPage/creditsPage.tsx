@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { Container, Row, Col, Card, Badge, Pagination, Button } from "react-bootstrap";
-import { PayCreditModal } from "../../features/credits/payCreditModal";
 import { ApplyCreditModal } from "../../features/credits/applyCreditModal";
-import type { Credit, CreditsResponse, Tariff } from "../../shared/lib/api/credits";;
-import { fetchMyCredits, payCredit, fetchTariffs, applyCredit } from "../../shared/lib/api/credits";
+import type { CreditsResponse, Tariff } from "../../shared/lib/api/credits";;
+import { fetchMyCredits, fetchTariffs, applyCredit } from "../../shared/lib/api/credits";
 
 import { fetchAllAccounts } from "../../shared/lib/api/accounts";
 import type { Account  } from "../../shared/lib/api/accounts";
@@ -15,10 +14,6 @@ export const CreditsPage = () => {
     page: { page: 0, size: 20, totalElements: 0, totalPages: 0 },
   });
   const [currentPage, setCurrentPage] = useState(0);
-
-  const [showModal, setShowModal] = useState(false);
-  const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
-  const [amount, setAmount] = useState("");
 
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
@@ -74,42 +69,6 @@ export const CreditsPage = () => {
       .finally(() => setTariffsLoading(false));
   }, [showApplyModal]);
 
-  const handleOpenModal = (credit: Credit) => {
-    setSelectedCredit(credit);
-    setAmount("");
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedCredit(null);
-    setAmount("");
-  };
-
-  const handlePay = async () => {
-    if (!selectedCredit) return;
-    const numAmount = Number(amount);
-    if (numAmount <= 0) {
-      alert("Введите сумму погашения больше 0");
-      return;
-    }
-    try {
-      await payCredit(selectedCredit.id, numAmount);
-      handleCloseModal();
-      setCreditsResponse((prev) => ({
-        ...prev,
-        content: prev.content.map((c) =>
-          c.id === selectedCredit.id
-            ? { ...c, remainingAmount: c.remainingAmount - numAmount }
-            : c
-        ),
-      }));
-    } catch (err) {
-      console.error(err);
-      alert("Ошибка при проведении платежа");
-    }
-  };
-
   const handleApplyCredit = async (
     tariffId: string,
     accountId: string,
@@ -133,15 +92,6 @@ export const CreditsPage = () => {
 
   return (
     <Container className="py-5">
-      <PayCreditModal
-        show={showModal}
-        onClose={handleCloseModal}
-        amount={amount}
-        setAmount={setAmount}
-        onSubmit={handlePay}
-        maxAmount={selectedCredit?.remainingAmount}
-      />
-
       <ApplyCreditModal
         show={showApplyModal}
         onClose={() => setShowApplyModal(false)}
@@ -189,16 +139,6 @@ export const CreditsPage = () => {
                     {new Date(credit.endDate).toLocaleDateString()}
                   </p>
                 </div>
-                {credit.status === "ACTIVE" && (
-                  <div className="d-grid">
-                    <Button
-                      variant={theme === "DARK" ? "outline-light" : "primary"}
-                      onClick={() => handleOpenModal(credit)}
-                    >
-                      Погасить
-                    </Button>
-                  </div>
-                )}
               </Card.Body>
             </Card>
           </Col>
