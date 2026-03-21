@@ -117,9 +117,13 @@ export const CreditsPage = () => {
       setShowApplyModal(false);
       const data = await fetchMyCredits(currentPage + 1, 10);
       setCreditsResponse(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Ошибка при оформлении кредита");
+      if (err.response?.status === 409) {
+        alert("На мастер счете недостаточно денег для выдачи кредита");
+      } else {
+        alert("Ошибка при оформлении кредита");
+      }
     }
   };
 
