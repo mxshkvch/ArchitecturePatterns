@@ -36,11 +36,7 @@ public class AccountService : IAccountService
         //проверить статус счета
         //провер€ю пока со счета на счет одного и того же человека - должно работать при переводе на любой другой счет
 
-        
-        if (fromAccountId == toAccountId)
-        {
-            throw new InvalidOperationException("You can not transfer money to the same account");
-        }
+
 
         Account? fromAccount = _context.Accounts.Where(a => a.Id == fromAccountId).FirstOrDefault();
         Account? toAccount = _context.Accounts.Where(a => a.Id == toAccountId).FirstOrDefault();
@@ -131,8 +127,6 @@ public class AccountService : IAccountService
         return accountResponse;
     }
 
-    
-
     public async Task<AccountResponse> TransferMoneyFromMasterAccount(Guid masterAccountId, Guid toAccountId, string description, decimal amountMoney)
     {
         //fromAccount ќЅя«ј“≈Ћ№Ќќ должен принадлежать текущему юзеру
@@ -189,7 +183,8 @@ public class AccountService : IAccountService
 
         //description UserTakesCredit or UserPaysCredit
 
-        bool isPaymentOverdue = false;
+        bool failedPayment = false;
+        string failReason = string.Empty;
 
         switch (description)
         {
@@ -197,7 +192,10 @@ public class AccountService : IAccountService
 
                 if (masterAccount.Balance < amountMoney)
                 {
-                    throw new InvalidOperationException($"Balance on masterAccount ({masterAccount}) is lower than amountMoney = {amountMoney}");
+                    //throw new InvalidOperationException($"Balance on masterAccount ({masterAccount}) is lower than amountMoney = {amountMoney}");
+                    failedPayment = true;
+                    failReason = $"FAILED: Balance on masterAccount ({masterAccount.Id}) is lower than amountMoney = {amountMoney}";
+                    break;
                 }
 
                 masterAccount.Balance -= amountMoney;
@@ -209,19 +207,17 @@ public class AccountService : IAccountService
                 if (toAccount.Balance < amountMoney)
                 {
                     //throw new InvalidOperationException($"Balance on toAccount ({toAccount}) is lower than amountMoney = {amountMoney}");
-                    //не throw а возвращать overdue
-
-                    isPaymentOverdue = true;
+                    failedPayment = true;
+                    failReason = $"FAILED: Balance on toAccount ({toAccount.Id}) is lower than amountMoney = {amountMoney}";
+                    break;
                 }
 
-                if (!isPaymentOverdue)
-                {
-                    masterAccount.Balance += amountMoney;
-                    toAccount.Balance -= amountMoney;
-                }
-
+                masterAccount.Balance += amountMoney;
+                toAccount.Balance -= amountMoney;
 
                 break;
+            default:
+                throw new InvalidOperationException($"Unknown credit transaction description: {description}");
         }
         //toAccountId - это то, что принадлежит юзеру
 
@@ -230,41 +226,6 @@ public class AccountService : IAccountService
         //уменьшить у фром и увеличить у to
 
         _context.Accounts.UpdateRange(masterAccount, toAccount);
-
-        Transaction toTransaction;
-
-        //необходимо в счетчик добавить
-        if (isPaymentOverdue)
-        {
-            toTransaction = new Transaction
-            {
-                Id = Guid.NewGuid(),
-                AccountId = toAccountId,
-                Amount = amountMoney,
-                Timestamp = DateTime.UtcNow,
-                BalanceAfter = toAccount.Balance,
-                Description = $"Balance on account ({toAccount}) is too low than amount of money = {amountMoney}",
-                Type = TransactionType.CREDIT_OVERDUE_PAYMENT
-            };
-
-            _context.Transactions.Add(toTransaction);
-            await _context.SaveChangesAsync();
-
-            AccountResponse accountResponseIsOverdue = new AccountResponse
-            {
-                AccountNumber = toAccount.AccountNumber,
-                ClosedAt = toAccount.ClosedAt,
-                CreatedAt = toAccount.CreatedAt,
-                Status = toAccount.Status.ToString(),
-                Balance = toAccount.Balance,
-                Currency = toAccount.Currency.ToString(),
-                Id = toAccount.Id,
-                UserId = toAccount.UserId,
-                transactionType = TransactionType.CREDIT_OVERDUE_PAYMENT
-            };
-
-            return accountResponseIsOverdue;
-        }
 
         //две транзакции
 
@@ -277,7 +238,7 @@ public class AccountService : IAccountService
             BalanceAfter = masterAccount.Balance
         };
 
-        toTransaction = new Transaction
+        Transaction toTransaction = new Transaction
         {
             Id = Guid.NewGuid(),
             AccountId = toAccountId,
@@ -291,24 +252,30 @@ public class AccountService : IAccountService
             case "UserTakesCredit":
 
                 masterTransaction.Type = TransactionType.CREDIT_GIVE;
-                masterTransaction.Description = $"Credit is given to {toAccountId}";
+                masterTransaction.Description = failedPayment
+                    ? $"Credit issue failed for {toAccountId}. {failReason}"
+                    : $"Credit is given to {toAccountId}";
 
                 toTransaction.Type = TransactionType.CREDIT_RECEIPT;
-                toTransaction.Description = $"Credit is taken from {masterAccountId}";
+                toTransaction.Description = failedPayment
+                    ? $"Credit receipt failed from {masterAccountId}. {failReason}"
+                    : $"Credit is taken from {masterAccountId}";
 
                 break;
             case "UserPaysCredit":
 
                 masterTransaction.Type = TransactionType.CREDIT_RECEIPT;
-                masterTransaction.Description = $"User's account = {toAccountId} paid";
+                masterTransaction.Description = failedPayment
+                    ? $"Payment failed from user's account = {toAccountId}. {failReason}"
+                    : $"User's account = {toAccountId} paid";
 
                 toTransaction.Type = TransactionType.CREDIT_PAYMENT;
-                toTransaction.Description = $"Pay to master account = {masterAccountId}";
+                toTransaction.Description = failedPayment
+                    ? $"Failed payment to master account = {masterAccountId}. {failReason}"
+                    : $"Pay to master account = {masterAccountId}";
 
                 break;
         }
-
-        _context.Accounts.UpdateRange(masterAccount, toAccount);
 
         _context.Transactions.AddRange(masterTransaction, toTransaction);
         await _context.SaveChangesAsync();
@@ -322,8 +289,7 @@ public class AccountService : IAccountService
             Balance = toAccount.Balance,
             Currency = toAccount.Currency.ToString(),
             Id = toAccount.Id,
-            UserId = toAccount.UserId,
-            transactionType = TransactionType.CREDIT_RECEIPT
+            UserId = toAccount.UserId
         };
 
         return accountResponse;
