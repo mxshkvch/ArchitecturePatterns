@@ -23,10 +23,7 @@ export const fetchSettings = async (): Promise<AppSettings> => {
   return data;
 };
 
-export const updateSettings = async (
-  theme: "LIGHT" | "DARK",
-  hiddenAccountIds: string[]
-): Promise<AppSettings> => {
+export const updateSettings = async (theme: "LIGHT" | "DARK", hiddenAccountIds: string[]): Promise<AppSettings> => {
   const { data } = await axios.put<AppSettings>(
     `${API_BASE}/settings`,
     { applicationType: "CLIENT", theme, hiddenAccountIds },

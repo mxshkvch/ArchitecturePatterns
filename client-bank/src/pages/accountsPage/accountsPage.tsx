@@ -163,10 +163,12 @@ export const AccountsPage = () => {
     }
   };
 
-  const displayAccounts = accounts.map(account => {
-    const isHidden = settings?.hiddenAccountIds.includes(account.id);
-    return { ...account, isHidden };
-  });
+  type DisplayAccount = Account & { isHidden: boolean };
+
+  const displayAccounts: DisplayAccount[] = accounts.map(account => ({
+    ...account,
+    isHidden: settings?.hiddenAccountIds.includes(account.id) ?? false,
+  }));
 
   return (
     <>
@@ -221,7 +223,7 @@ export const AccountsPage = () => {
           {!settings ? (
             <div className="text-center py-5">Загрузка...</div>
           ) : (
-            displayAccounts.map((account: any) => (
+            displayAccounts.map((account: DisplayAccount) => (
               <Col md={6} key={account.id} className="mb-4">
                 <Card className={`shadow-sm ${theme === "DARK" ? "bg-dark text-light" : "bg-white text-dark"}`}>
                   <Card.Body style={{ minHeight: "220px" }}>

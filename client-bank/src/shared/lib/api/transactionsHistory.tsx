@@ -22,11 +22,7 @@ export type TransactionsResponse = {
 
 const API_BASE = "http://89.23.105.66:5000/api";
 
-export const getTransactions = async (
-  accountId: string,
-  page: number,
-  size: number
-): Promise<TransactionsResponse> => {
+export const getTransactions = async ( accountId: string, page: number, size: number ): Promise<TransactionsResponse> => {
   const token = localStorage.getItem("accessToken");
   const response = await axios.get<TransactionsResponse>(
     `${API_BASE}/accounts/${accountId}/transactions`,
