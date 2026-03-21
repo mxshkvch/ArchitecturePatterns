@@ -152,10 +152,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
 
-    // Создать базу данных, если не существует
-    dbContext.Database.EnsureCreated();
-    // или если используете миграции:
-    // dbContext.Database.Migrate();
+    dbContext.Database.Migrate();
 }
 
 if (app.Environment.IsDevelopment())
