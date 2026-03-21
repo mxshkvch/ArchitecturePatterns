@@ -27,7 +27,7 @@ namespace CreditService.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+            var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
 
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
