@@ -12,6 +12,7 @@ import { TransferModal } from "../../features/accounts/transferMoneyModal";
 import { transferBetweenAccounts } from "../../shared/lib/api/accounts";
 
 import { fetchSettings, updateSettings, type AppSettings } from "../../shared/lib/api/settings";
+import { useTheme } from "../../shared/lib/provider/themeProvider"
 
 export const AccountsPage = () => {
   const navigate = useNavigate();
@@ -38,6 +39,8 @@ export const AccountsPage = () => {
   const [transferAmount, setTransferAmount] = useState<string>("");
   const [targetOwnAccountId, setTargetOwnAccountId] = useState("");
   const [targetForeignAccountId, setTargetForeignAccountId] = useState("");
+
+  const { theme } = useTheme();
 
   useEffect(() => {
     const loadAccounts = async () => {
@@ -146,11 +149,13 @@ export const AccountsPage = () => {
 
   const toggleHideAccount = async (accountId: string) => {
     if (!settings) return;
+
     const newHidden = settings.hiddenAccountIds.includes(accountId)
       ? settings.hiddenAccountIds.filter(id => id !== accountId)
       : [...settings.hiddenAccountIds, accountId];
+
     try {
-      const updated = await updateSettings(newHidden);
+      const updated = await updateSettings(settings.theme, newHidden);
       setSettings(updated);
     } catch (err) {
       console.error("Ошибка обновления настроек:", err);
@@ -174,7 +179,6 @@ export const AccountsPage = () => {
         setInitialDeposit={setInitialDeposit}
         onCreate={handleCreateAccount}
       />
-
       <DepositModal
         show={showDepositModal}
         onClose={() => setShowDepositModal(false)}
@@ -182,7 +186,6 @@ export const AccountsPage = () => {
         setAmount={setDepositAmount}
         onSubmit={handleDeposit}
       />
-
       <WithdrawModal
         show={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
@@ -190,7 +193,6 @@ export const AccountsPage = () => {
         setAmount={setWithdrawAmount}
         onSubmit={handleWithdraw}
       />
-
       <TransferModal
         show={showTransferModal}
         onClose={() => setShowTransferModal(false)}
@@ -209,7 +211,9 @@ export const AccountsPage = () => {
         <Row className="mb-4">
           <Col><h2>Мои счета</h2></Col>
           <Col className="text-end">
-            <Button variant="success" onClick={() => setShowModal(true)}>+ Открыть новый счёт</Button>
+            <Button variant={theme === "DARK" ? "outline-light" : "success"} onClick={() => setShowModal(true)}>
+              + Открыть новый счёт
+            </Button>
           </Col>
         </Row>
 
@@ -217,69 +221,122 @@ export const AccountsPage = () => {
           {!settings ? (
             <div className="text-center py-5">Загрузка...</div>
           ) : (
-            displayAccounts.map(account => (
-            <Col md={6} key={account.id} className="mb-4">
-              <Card className="shadow-sm">
-                <Card.Body style={{ minHeight: "220px" }}>
-                  {account.isHidden ? (
-                    <>
-                      <Card.Title>Счет скрыт</Card.Title>
-                      <div className="d-flex gap-2 flex-wrap">
-                        <Button
-                          size="sm"
-                          variant="outline-primary"
-                          onClick={() => toggleHideAccount(account.id)}
-                        >
-                          Показать
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Card.Title>№ {account.accountNumber}</Card.Title>
-                      <Card.Subtitle className="mb-2 text-muted">
-                        Открыт: {new Date(account.createdAt).toLocaleString("ru-RU", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Card.Subtitle>
-                      <h4 className="my-3">
-                        {account.balance.toLocaleString()} {account.currency}
-                      </h4>
-                      <Badge bg={account.status === "ACTIVE" ? "success" : "secondary"} className="mb-3">
-                        {account.status}
-                      </Badge>
+            displayAccounts.map((account: any) => (
+              <Col md={6} key={account.id} className="mb-4">
+                <Card className={`shadow-sm ${theme === "DARK" ? "bg-dark text-light" : "bg-white text-dark"}`}>
+                  <Card.Body style={{ minHeight: "220px" }}>
+                    {account.isHidden ? (
+                      <>
+                        <Card.Title>Счет скрыт</Card.Title>
+                        <div className="d-flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant={theme === "DARK" ? "outline-light" : "outline-primary"}
+                            onClick={() => toggleHideAccount(account.id)}
+                          >
+                            Показать
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Card.Title>№ {account.accountNumber}</Card.Title>
+                        <Card.Subtitle className={`mb-2 ${theme === "DARK" ? "text-light" : "text-muted"}`}>
+                          Открыт: {new Date(account.createdAt).toLocaleString("ru-RU", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </Card.Subtitle>
+                        <h4 className="my-3">
+                          {account.balance.toLocaleString()} {account.currency}
+                        </h4>
+                        <Badge bg={account.status === "ACTIVE" ? "success" : "secondary"} className="mb-3">
+                          {account.status}
+                        </Badge>
 
-                      <div className="d-flex gap-2 flex-wrap">
-                        <Button size="sm" variant="primary" onClick={() => { setSelectedAccountId(account.id); setDepositAmount(""); setShowDepositModal(true); }} disabled={account.status === "CLOSED"}>Внести</Button>
-                        <Button size="sm" variant="warning" onClick={() => { setSelectedAccountId(account.id); setWithdrawAmount(""); setShowWithdrawModal(true); }} disabled={account.status === "CLOSED"}>Снять</Button>
-                        <Button size="sm" variant="info" onClick={() => navigate(`/accounts/${account.id}/transactions`)}>История</Button>
-                        <Button size="sm" variant="danger" onClick={() => { if (window.confirm("Вы уверены, что хотите закрыть этот счет?")) handleCloseAccount(account.id); }} disabled={account.status === "CLOSED"}>Закрыть</Button>
-                        <Button size="sm" variant="secondary" onClick={() => { setSelectedAccountId(account.id); setTransferAmount(""); setTargetOwnAccountId(""); setTargetForeignAccountId(""); setShowTransferModal(true); }} disabled={account.status === "CLOSED"}>Перевести</Button>
-                        <Button size="sm" variant="outline-secondary" onClick={() => toggleHideAccount(account.id)}>
-                          Скрыть
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </Card.Body>
-              </Card>
-            </Col>
-              ))
-            )}
-          </Row>
+                        <div className="d-flex gap-2 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant={theme === "DARK" ? "outline-light" : "primary"}
+                            onClick={() => { setSelectedAccountId(account.id); setDepositAmount(""); setShowDepositModal(true); }}
+                            disabled={account.status === "CLOSED"}
+                          >
+                            Внести
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={theme === "DARK" ? "outline-warning" : "warning"}
+                            onClick={() => { setSelectedAccountId(account.id); setWithdrawAmount(""); setShowWithdrawModal(true); }}
+                            disabled={account.status === "CLOSED"}
+                          >
+                            Снять
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={theme === "DARK" ? "outline-info" : "info"}
+                            onClick={() => navigate(`/accounts/${account.id}/transactions`)}
+                          >
+                            История
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={theme === "DARK" ? "outline-danger" : "danger"}
+                            onClick={() => { if (window.confirm("Вы уверены, что хотите закрыть этот счет?")) handleCloseAccount(account.id); }}
+                            disabled={account.status === "CLOSED"}
+                          >
+                            Закрыть
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={theme === "DARK" ? "outline-secondary" : "secondary"}
+                            onClick={() => { setSelectedAccountId(account.id); setTransferAmount(""); setTargetOwnAccountId(""); setTargetForeignAccountId(""); setShowTransferModal(true); }}
+                            disabled={account.status === "CLOSED"}
+                          >
+                            Перевести
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={theme === "DARK" ? "outline-light" : "outline-secondary"}
+                            onClick={() => toggleHideAccount(account.id)}
+                          >
+                            Скрыть
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))
+          )}
+        </Row>
 
         <Row className="mt-4">
           <Col className="d-flex justify-content-center">
             <Pagination>
-              <Pagination.Prev disabled={currentPage === 0} onClick={() => setCurrentPage(prev => prev - 1)} />
+              <Pagination.Prev
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+                className={theme === "DARK" ? "bg-dark text-light" : ""}
+              />
               {Array.from({ length: accountsResponse?.page.totalPages ?? 0 }, (_, i) => (
-                <Pagination.Item key={i} active={i === currentPage} onClick={() => setCurrentPage(i)}>{i + 1}</Pagination.Item>
+                <Pagination.Item
+                  key={i}
+                  active={i === currentPage}
+                  onClick={() => setCurrentPage(i)}
+                  className={theme === "DARK" ? "bg-dark text-light border-light" : ""}
+                >
+                  {i + 1}
+                </Pagination.Item>
               ))}
-              <Pagination.Next disabled={currentPage === (accountsResponse?.page.totalPages ?? 1) - 1} onClick={() => setCurrentPage(prev => prev + 1)} />
+              <Pagination.Next
+                disabled={currentPage === (accountsResponse?.page.totalPages ?? 1) - 1}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                className={theme === "DARK" ? "bg-dark text-light" : ""}
+              />
             </Pagination>
           </Col>
         </Row>

@@ -7,6 +7,7 @@ import { fetchMyCredits, payCredit, fetchTariffs, applyCredit } from "../../shar
 
 import { fetchAllAccounts } from "../../shared/lib/api/accounts";
 import type { Account  } from "../../shared/lib/api/accounts";
+import { useTheme } from "../../shared/lib/provider/themeProvider";
 
 export const CreditsPage = () => {
   const [creditsResponse, setCreditsResponse] = useState<CreditsResponse>({
@@ -26,10 +27,13 @@ export const CreditsPage = () => {
 
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
 
+  const { theme } = useTheme();
+  const pageSize = 6;
+
   useEffect(() => {
     const loadCredits = async () => {
       try {
-        const data = await fetchMyCredits(currentPage + 1, 10);
+        const data = await fetchMyCredits(currentPage + 1, pageSize);
         setCreditsResponse(data);
       } catch (err) {
         console.error("Не удалось загрузить кредиты", err);
@@ -139,13 +143,13 @@ export const CreditsPage = () => {
       />
 
       <ApplyCreditModal
-          show={showApplyModal}
-          onClose={() => setShowApplyModal(false)}
-          onSubmit={handleApplyCredit}
-          tariffs={tariffs}
-          accounts={allAccounts}
-          loading={tariffsLoading}
-          error={tariffsError}
+        show={showApplyModal}
+        onClose={() => setShowApplyModal(false)}
+        onSubmit={handleApplyCredit}
+        tariffs={tariffs}
+        accounts={allAccounts}
+        loading={tariffsLoading}
+        error={tariffsError}
       />
 
       <Row className="mb-4">
@@ -153,31 +157,46 @@ export const CreditsPage = () => {
           <h2>Мои кредиты</h2>
         </Col>
         <Col className="text-end">
-          <Button variant="success" onClick={() => setShowApplyModal(true)}>Взять кредит</Button>
+          <Button variant={theme === "DARK" ? "outline-light" : "success"} onClick={() => setShowApplyModal(true)}>
+            Взять кредит
+          </Button>
         </Col>
       </Row>
 
       <Row>
         {creditsResponse.content.map((credit) => (
           <Col md={6} key={credit.id} className="mb-4 d-flex">
-            <Card className="shadow-sm flex-fill d-flex flex-column">
+            <Card
+              className={`shadow-sm flex-fill d-flex flex-column ${
+                theme === "DARK" ? "bg-dark text-light" : "bg-white text-dark"
+              }`}
+            >
               <Card.Body className="d-flex flex-column h-100">
                 <div className="flex-grow-1">
                   <Card.Title>Кредит №{credit.id}</Card.Title>
-                  <Badge bg={credit.status === "ACTIVE" ? "success" : "secondary"} className="mb-2">
+                  <Badge
+                    bg={credit.status === "ACTIVE" ? "success" : "secondary"}
+                    className={`mb-2 ${theme === "DARK" ? "text-light" : ""}`}
+                  >
                     {credit.status}
                   </Badge>
-                  <Card.Subtitle className="mb-2 text-muted">
+                  <Card.Subtitle className={`mb-2 ${theme === "DARK" ? "text-light" : "text-muted"}`}>
                     Сумма: {credit.principal.toLocaleString()} | Остаток: {credit.remainingAmount.toLocaleString()}
                   </Card.Subtitle>
                   <p>
                     Процентная ставка: {credit.interestRate}%<br />
-                    Период: {new Date(credit.startDate).toLocaleDateString()} - {new Date(credit.endDate).toLocaleDateString()}
+                    Период: {new Date(credit.startDate).toLocaleDateString()} -{" "}
+                    {new Date(credit.endDate).toLocaleDateString()}
                   </p>
                 </div>
                 {credit.status === "ACTIVE" && (
                   <div className="d-grid">
-                    <Button variant="primary" onClick={() => handleOpenModal(credit)}>Погасить</Button>
+                    <Button
+                      variant={theme === "DARK" ? "outline-light" : "primary"}
+                      onClick={() => handleOpenModal(credit)}
+                    >
+                      Погасить
+                    </Button>
                   </div>
                 )}
               </Card.Body>
@@ -192,15 +211,22 @@ export const CreditsPage = () => {
             <Pagination.Prev
               disabled={currentPage === 0}
               onClick={() => setCurrentPage(currentPage - 1)}
+              className={theme === "DARK" ? "bg-dark text-light" : ""}
             />
             {Array.from({ length: creditsResponse.page.totalPages }, (_, i) => (
-              <Pagination.Item key={i} active={i === currentPage} onClick={() => setCurrentPage(i)}>
+              <Pagination.Item
+                key={i}
+                active={i === currentPage}
+                onClick={() => setCurrentPage(i)}
+                className={theme === "DARK" ? "bg-dark text-light border-light" : ""}
+              >
                 {i + 1}
               </Pagination.Item>
             ))}
             <Pagination.Next
               disabled={currentPage === creditsResponse.page.totalPages - 1}
               onClick={() => setCurrentPage(currentPage + 1)}
+              className={theme === "DARK" ? "bg-dark text-light" : ""}
             />
           </Pagination>
         </Col>

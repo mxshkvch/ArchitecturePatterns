@@ -2,6 +2,7 @@ import type { FC } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
 import type { Account } from "../../shared/lib/api/accounts";
 import { useState } from "react";
+import { useTheme } from "../../shared/lib/provider/themeProvider"
 
 type Props = {
   show: boolean;
@@ -31,6 +32,7 @@ export const TransferModal: FC<Props> = ({
   onSubmit,
 }) => {
   const [transferType, setTransferType] = useState<"own" | "foreign">("own");
+  const { theme } = useTheme();
 
   const handleSubmit = () => {
     const numAmount = Number(amount);
@@ -76,84 +78,89 @@ export const TransferModal: FC<Props> = ({
 
   return (
     <Modal show={show} onHide={onClose}>
-      <Modal.Header closeButton>
+        <Modal.Header closeButton className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Modal.Title>Перевод средств</Modal.Title>
-      </Modal.Header>
+        </Modal.Header>
 
-      <Modal.Body>
+        <Modal.Body className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Form>
-          <Form.Group className="mb-3">
+            <Form.Group className="mb-3">
             <Form.Label>Тип перевода</Form.Label>
             <div>
-              <Form.Check
+                <Form.Check
                 inline
                 type="radio"
                 label="На свой счет"
                 name="transferType"
                 checked={transferType === "own"}
                 onChange={() => setTransferType("own")}
-              />
-              <Form.Check
+                className={theme === "DARK" ? "text-light" : ""}
+                />
+                <Form.Check
                 inline
                 type="radio"
                 label="На чужой счет"
                 name="transferType"
                 checked={transferType === "foreign"}
                 onChange={() => setTransferType("foreign")}
-              />
+                className={theme === "DARK" ? "text-light" : ""}
+                />
             </div>
-          </Form.Group>
+            </Form.Group>
 
-          {transferType === "own" && (
+            {transferType === "own" && (
             <Form.Group className="mb-3">
-              <Form.Label>Счета (свои)</Form.Label>
-              <Form.Select
+                <Form.Label>Счета (свои)</Form.Label>
+                <Form.Select
                 value={targetOwnAccountId}
                 onChange={(e) => setTargetOwnAccountId(e.target.value)}
-              >
+                className={theme === "DARK" ? "bg-secondary text-light border-light" : ""}
+                >
                 <option value="">Выберите счет</option>
                 {accounts
-                  .filter((a) => a.id !== fromAccountId)
-                  .map((a) => (
+                    .filter((a) => a.id !== fromAccountId)
+                    .map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.accountNumber} ({a.currency})
+                        {a.accountNumber} ({a.currency})
                     </option>
-                  ))}
-              </Form.Select>
+                    ))}
+                </Form.Select>
             </Form.Group>
-          )}
+            )}
 
-          {transferType === "foreign" && (
+            {transferType === "foreign" && (
             <Form.Group className="mb-3">
-              <Form.Label>ID чужого счета</Form.Label>
-              <Form.Control
+                <Form.Label>ID чужого счета</Form.Label>
+                <Form.Control
                 type="text"
                 value={targetForeignAccountId}
                 onChange={(e) => setTargetForeignAccountId(e.target.value)}
                 placeholder="UUID счета"
-              />
+                className={theme === "DARK" ? "bg-secondary text-light border-light dark-placeholder" : ""}
+                />
             </Form.Group>
-          )}
+            )}
 
-          <Form.Group>
+            <Form.Group>
             <Form.Label>Сумма</Form.Label>
             <Form.Control
-              type="text"
-              value={amount}
-              onChange={(e) => {
+                type="text"
+                value={amount}
+                onChange={(e) => {
                 const val = e.target.value;
                 if (/^\d*\.?\d*$/.test(val)) setAmount(val);
-              }}
-              placeholder="Введите сумму"
+                }}
+                placeholder="Введите сумму"
+                className={theme === "DARK" ? "bg-secondary text-light border-light dark-placeholder" : ""}
             />
-          </Form.Group>
+            </Form.Group>
         </Form>
-      </Modal.Body>
+        </Modal.Body>
 
-      <Modal.Footer>
+        <Modal.Footer className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button variant="primary" onClick={handleSubmit}>Перевести</Button>
-      </Modal.Footer>
+        </Modal.Footer>
     </Modal>
-  );
+    );
 };

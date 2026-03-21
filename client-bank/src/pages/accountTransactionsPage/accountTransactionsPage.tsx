@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Container, Table, Pagination, Spinner } from "react-bootstrap";
 import { getTransactions } from "../../shared/lib/api/transactionsHistory";
 import type { Transaction } from "../../shared/lib/api/transactionsHistory";
+import { useTheme } from "../../shared/lib/provider/themeProvider";
 
 export const AccountTransactionsPage = () => {
   const { accountId } = useParams<{ accountId: string }>();
@@ -11,6 +12,8 @@ export const AccountTransactionsPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 6;
   const [totalPages, setTotalPages] = useState(0);
+
+  const { theme } = useTheme();
 
   const fetchTransactions = async (page: number) => {
     if (!accountId) return;
@@ -36,11 +39,19 @@ export const AccountTransactionsPage = () => {
 
       {loading ? (
         <div className="text-center my-5">
-          <Spinner animation="border" />
+          <Spinner
+            animation="border"
+            variant={theme === "DARK" ? "light" : "dark"}
+          />
         </div>
       ) : (
         <>
-          <Table striped bordered hover>
+          <Table
+            striped
+            bordered
+            hover
+            variant={theme === "DARK" ? "dark" : "light"}
+          >
             <thead>
               <tr>
                 <th>Дата</th>
@@ -68,12 +79,14 @@ export const AccountTransactionsPage = () => {
               <Pagination.Prev
                 disabled={currentPage === 0}
                 onClick={() => setCurrentPage((prev) => prev - 1)}
+                className={theme === "DARK" ? "bg-dark text-light" : ""}
               />
               {Array.from({ length: totalPages }, (_, i) => (
                 <Pagination.Item
                   key={i}
                   active={i === currentPage}
                   onClick={() => setCurrentPage(i)}
+                  className={theme === "DARK" ? "bg-dark text-light border-light" : ""}
                 >
                   {i + 1}
                 </Pagination.Item>
@@ -81,6 +94,7 @@ export const AccountTransactionsPage = () => {
               <Pagination.Next
                 disabled={currentPage === totalPages - 1}
                 onClick={() => setCurrentPage((prev) => prev + 1)}
+                className={theme === "DARK" ? "bg-dark text-light" : ""}
               />
             </Pagination>
           </div>

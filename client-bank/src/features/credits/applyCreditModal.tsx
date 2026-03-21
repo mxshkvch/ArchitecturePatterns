@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Modal, Button, Form, ListGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
 import type { Tariff } from "../../shared/lib/api/credits";
 import type { Account } from "../../shared/lib/api/accounts";
+import { useTheme } from "../../shared/lib/provider/themeProvider"
 
 type ApplyCreditModalProps = {
   show: boolean;
@@ -13,19 +14,12 @@ type ApplyCreditModalProps = {
   error: string | null;
 };
 
-export const ApplyCreditModal = ({
-  show,
-  onClose,
-  onSubmit,
-  tariffs,
-  accounts,
-  loading,
-  error,
-}: ApplyCreditModalProps) => {
+export const ApplyCreditModal = ({show, onClose, onSubmit, tariffs, accounts, loading, error, }: ApplyCreditModalProps) => {
   const [selectedTariff, setSelectedTariff] = useState<Tariff | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [amount, setAmount] = useState<number | string>("");
   const [term, setTerm] = useState<number | string>("");
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (!show) {
@@ -81,11 +75,11 @@ export const ApplyCreditModal = ({
 
   return (
     <Modal show={show} onHide={onClose} centered>
-      <Modal.Header closeButton>
+      <Modal.Header closeButton className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Modal.Title>Оформить кредит</Modal.Title>
       </Modal.Header>
 
-      <Modal.Body>
+      <Modal.Body className={theme === "DARK" ? "bg-dark text-light" : ""}>
         {loading && <p>Загрузка тарифов...</p>}
         {error && <p className="text-danger">{error}</p>}
         {!loading && !error && tariffs.length === 0 && <p>Нет доступных тарифов</p>}
@@ -94,25 +88,26 @@ export const ApplyCreditModal = ({
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>Выберите тариф</Form.Label>
-              <ListGroup>
+              <ListGroup className={theme === "DARK" ? "bg-secondary text-light" : ""}>
                 {tariffs.map((tariff) => (
                   <OverlayTrigger
-                      key={tariff.id}
-                      placement="right"
-                      overlay={
-                        <Tooltip id={`tooltip-${tariff.id}`}>
-                          Мин. сумма: {tariff.minAmount} | Макс. сумма: {tariff.maxAmount}
-                          <br />
-                          Мин. срок: {tariff.minTerm} мес. | Макс. срок: {tariff.maxTerm} мес.
-                          <br />
-                          Ставка: {tariff.interestRate}%
-                        </Tooltip>
-                      }
-                    >
+                    key={tariff.id}
+                    placement="right"
+                    overlay={
+                      <Tooltip id={`tooltip-${tariff.id}`}>
+                        Мин. сумма: {tariff.minAmount} | Макс. сумма: {tariff.maxAmount}
+                        <br />
+                        Мин. срок: {tariff.minTerm} мес. | Макс. срок: {tariff.maxTerm} мес.
+                        <br />
+                        Ставка: {tariff.interestRate}%
+                      </Tooltip>
+                    }
+                  >
                     <ListGroup.Item
                       action
                       active={selectedTariff?.id === tariff.id}
                       onClick={(e) => { e.preventDefault(); setSelectedTariff(tariff); }}
+                      className={theme === "DARK" ? "bg-dark text-light" : ""}
                     >
                       {tariff.name} (Ставка: {tariff.interestRate}%)
                     </ListGroup.Item>
@@ -126,6 +121,7 @@ export const ApplyCreditModal = ({
               <Form.Select
                 value={selectedAccountId}
                 onChange={(e) => setSelectedAccountId(e.target.value)}
+                className={theme === "DARK" ? "bg-secondary text-light border-light" : ""}
               >
                 <option value="">Выберите счет</option>
                 {accounts.map((a) => (
@@ -146,6 +142,7 @@ export const ApplyCreditModal = ({
               max={selectedTariff?.maxAmount}
               step={0.01}
               isInvalid={!!isAmountInvalid}
+              className={theme === "DARK" ? "bg-secondary text-light border-light dark-placeholder" : ""}
             />
 
             <Form.Label className="mt-3">Срок (мес.)</Form.Label>
@@ -157,12 +154,13 @@ export const ApplyCreditModal = ({
               min={selectedTariff?.minTerm}
               max={selectedTariff?.maxTerm}
               isInvalid={!!isTermInvalid}
+              className={theme === "DARK" ? "bg-secondary text-light border-light dark-placeholder" : ""}
             />
           </Form>
         )}
       </Modal.Body>
 
-      <Modal.Footer>
+      <Modal.Footer className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button variant="primary" disabled={!isValid} onClick={handleSubmit}>Оформить</Button>
       </Modal.Footer>
