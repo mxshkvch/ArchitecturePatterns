@@ -75,14 +75,15 @@ namespace CreditService.Services
 
                             await context.SaveChangesAsync(stoppingToken);
                             _logger.LogInformation("Paid {Amount} for credit {CreditId}", paymentAmount, credit.Id);
+                            
+                            context.ChangeTracker.Clear();
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Failed to process payment for credit {CreditId}", credit.Id);
                         }
                     }
-
-                    // Обновление статусов просрочки
+                    
                     var activeCreditsForStatus = await context.Credits
                         .Where(c => c.status == StatusCredit.ACTIVE && c.remainingAmount > 0)
                         .ToListAsync(stoppingToken);
