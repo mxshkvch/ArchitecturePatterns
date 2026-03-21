@@ -12,7 +12,6 @@ namespace CoreService.Controllers;
 
 [ApiController]
 [Route("internal/core")]
-[Authorize(Roles = "SERVICE")]
 public class InternalCoreController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
