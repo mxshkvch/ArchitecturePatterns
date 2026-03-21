@@ -83,7 +83,7 @@ namespace CreditService.Services
                 throw new KeyNotFoundException("User's Account does not exists");
             }
 
-            var remainingAmountMoney = request.amount * (1 + (tariff.interestRate / 100.0) * (DateTime.UtcNow.AddMonths(request.term) - DateTime.UtcNow).TotalDays / 365.0);
+            var remainingAmountMoney = request.amount * (1 + (tariff.interestRate / 100.0) * (DateTime.UtcNow.AddMinutes(request.term) - DateTime.UtcNow).TotalDays / 365.0);
 
             var credit = new Credit
             {
@@ -95,12 +95,12 @@ namespace CreditService.Services
                 interestRate = tariff.interestRate,
                 status = StatusCredit.ACTIVE,
                 startDate = DateTime.UtcNow,
-                endDate = DateTime.UtcNow.AddMonths(request.term),
-                accountId = accountId//
+                endDate = DateTime.UtcNow.AddMinutes(request.term),
+                accountId = accountId,
+                PaymentFrequencyMinutes = 1,
+                LastPaymentDate = DateTime.UtcNow
             };
 
-            //проверить
-            //await _coreServiceClient.DepostUserAccountAfterApplyAsync(currentUser.Id, accountId, credit.principal, CancellationToken.None);
             bool isPaid = await _coreServiceClient.MasterAccountTransaction(currentUser.Id, accountId, (decimal)credit.principal, MasterDescription.UserTakesCredit.ToString(), CancellationToken.None);
             if (!isPaid)
             {
@@ -181,6 +181,8 @@ namespace CreditService.Services
 
             if (credit.remainingAmount <= 0)
                 credit.status = StatusCredit.PAID;
+
+            credit.LastPaymentDate = DateTimeOffset.UtcNow;
 
             _context.Credits.Update(credit);
             await _context.SaveChangesAsync();
@@ -287,7 +289,6 @@ namespace CreditService.Services
         public async Task<DelinquenciesResponse> GetMyDelinquencies(int page, int size)
         {
             ValidatePagination(page, size);
-            await UpdateOverdueStatusesAsync();
             var currentUser = await GetCurrentUserAsync();
 
             var query = _context.Credits
@@ -301,7 +302,6 @@ namespace CreditService.Services
         {
             ValidatePagination(page, size);
             await EnsureCurrentUserHasBackofficeRoleAsync();
-            await UpdateOverdueStatusesAsync();
 
             var query = _context.Credits
                 .AsNoTracking()
@@ -312,7 +312,6 @@ namespace CreditService.Services
 
         public async Task<CreditRatingResponse> GetMyCreditRating()
         {
-            await UpdateOverdueStatusesAsync();
             var currentUser = await GetCurrentUserAsync();
             return await BuildCreditRatingAsync(currentUser.Id);
         }
@@ -320,7 +319,6 @@ namespace CreditService.Services
         public async Task<CreditRatingResponse> GetCreditRatingByUser(Guid userId)
         {
             await EnsureCurrentUserHasBackofficeRoleAsync();
-            await UpdateOverdueStatusesAsync();
             return await BuildCreditRatingAsync(userId);
         }
 
@@ -474,36 +472,6 @@ namespace CreditService.Services
                 DefaultedCredits = defaulted,
                 CalculatedAt = DateTimeOffset.UtcNow
             };
-        }
-
-        private async Task UpdateOverdueStatusesAsync()
-        {
-            var utcNow = DateTimeOffset.UtcNow;
-
-            var toOverdue = await _context.Credits
-                .Where(x => x.status == StatusCredit.ACTIVE && x.endDate < utcNow && x.remainingAmount > 0)
-                .ToListAsync();
-
-            var toDefaulted = await _context.Credits
-                .Where(x => x.status == StatusCredit.OVERDUE && x.endDate < utcNow.AddDays(-30) && x.remainingAmount > 0)
-                .ToListAsync();
-
-            if (toOverdue.Count == 0 && toDefaulted.Count == 0)
-            {
-                return;
-            }
-
-            foreach (var credit in toOverdue)
-            {
-                credit.status = StatusCredit.OVERDUE;
-            }
-
-            foreach (var credit in toDefaulted)
-            {
-                credit.status = StatusCredit.DEFAULTED;
-            }
-
-            await _context.SaveChangesAsync();
         }
 
         private void ValidatePagination(int page, int size)

@@ -2,11 +2,7 @@
 using CreditService.Domain.Abstractions;
 using CreditService.Domain.Enum;
 using CreditService.Services.Abstractions;
-using CreditService.Services.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Security.Claims;
 using UserService.Data;
 
 namespace CreditService.Services
@@ -14,78 +10,114 @@ namespace CreditService.Services
     public class CreditPaymentWorker : BackgroundService
     {
         private readonly IServiceScopeFactory _scopeFactory;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        private readonly IUserServiceClient _userServiceClient;
-        private readonly ICoreServiceClient _coreServiceClient;
-        public CreditPaymentWorker(IServiceScopeFactory scopeFactory, IHttpContextAccessor httpContextAccessor, IUserServiceClient userServiceClient, ICoreServiceClient coreServiceClient)
+        private readonly ILogger<CreditPaymentWorker> _logger;
+
+        public CreditPaymentWorker(IServiceScopeFactory scopeFactory, ILogger<CreditPaymentWorker> logger)
         {
             _scopeFactory = scopeFactory;
-            _httpContextAccessor = httpContextAccessor;
-            _userServiceClient = userServiceClient;
-            _coreServiceClient = coreServiceClient;
+            _logger = logger;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+            var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
 
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
                 try
                 {
                     using var scope = _scopeFactory.CreateScope();
-
                     var context = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
-                    var creditService = scope.ServiceProvider.GetRequiredService<ICreditService>();
+                    var coreServiceClient = scope.ServiceProvider.GetRequiredService<ICoreServiceClient>();
 
-                    List<UserAccessResponse> users = await GetAllUsersAsync();
+                    var utcNow = DateTimeOffset.UtcNow;
 
-                    foreach (var user in users)
+                    // Списание по активным кредитам
+                    var activeCredits = await context.Credits
+                        .Where(c => c.status == StatusCredit.ACTIVE && c.remainingAmount > 0)
+                        .ToListAsync(stoppingToken);
+
+                    foreach (var credit in activeCredits)
                     {
-                        if (user == null)
+                        try
                         {
-                            continue;
+                            var minutesSinceLastPayment = (utcNow - (credit.LastPaymentDate ?? credit.startDate)).TotalMinutes;
+                            var missedPayments = (int)(minutesSinceLastPayment / credit.PaymentFrequencyMinutes);
+
+                            if (missedPayments <= 0) continue;
+
+                            var paymentAmount = Math.Round(credit.remainingAmount / 
+                                ((credit.endDate - credit.startDate).TotalMinutes / credit.PaymentFrequencyMinutes), 2);
+
+                            paymentAmount = Math.Min(paymentAmount * missedPayments, credit.remainingAmount);
+
+                            if (paymentAmount <= 0) continue;
+
+                            bool isPaid = await coreServiceClient.PayUserAccountCreditAsync(
+                                credit.userId,
+                                credit.accountId,
+                                paymentAmount,
+                                stoppingToken);
+
+                            if (!isPaid)
+                            {
+                                _logger.LogWarning("Failed to pay {Amount} for credit {CreditId}", paymentAmount, credit.Id);
+                                continue;
+                            }
+
+                            credit.remainingAmount = Math.Round(credit.remainingAmount - paymentAmount, 2);
+                            credit.LastPaymentDate = utcNow;
+
+                            if (credit.remainingAmount <= 0)
+                            {
+                                credit.status = StatusCredit.PAID;
+                            }
+
+                            await context.SaveChangesAsync(stoppingToken);
+                            _logger.LogInformation("Paid {Amount} for credit {CreditId}", paymentAmount, credit.Id);
                         }
-
-                        var credits = await context.Credits
-                            .Where(c => c.status == StatusCredit.ACTIVE && c.userId == user.Id && c.accountId != Guid.Empty)
-                            .ToListAsync(stoppingToken);
-
-                        foreach (Credit credit in credits)
+                        catch (Exception ex)
                         {
-                            await creditService.AutomaticPayCreditById(credit.Id, credit.accountId);
+                            _logger.LogError(ex, "Failed to process payment for credit {CreditId}", credit.Id);
                         }
+                    }
+
+                    // Обновление статусов просрочки
+                    var activeCreditsForStatus = await context.Credits
+                        .Where(c => c.status == StatusCredit.ACTIVE && c.remainingAmount > 0)
+                        .ToListAsync(stoppingToken);
+
+                    var creditsToOverdue = activeCreditsForStatus
+                        .Where(c => c.endDate < utcNow || 
+                            (utcNow - (c.LastPaymentDate ?? c.startDate)).TotalMinutes > c.PaymentFrequencyMinutes * 2)
+                        .ToList();
+
+                    var creditsToDefaulted = await context.Credits
+                        .Where(c => c.status == StatusCredit.OVERDUE && c.remainingAmount > 0 && c.endDate < utcNow.AddDays(-30))
+                        .ToListAsync(stoppingToken);
+
+                    foreach (var credit in creditsToOverdue)
+                    {
+                        credit.status = StatusCredit.OVERDUE;
+                        _logger.LogInformation("Credit {CreditId} marked as OVERDUE", credit.Id);
+                    }
+
+                    foreach (var credit in creditsToDefaulted)
+                    {
+                        credit.status = StatusCredit.DEFAULTED;
+                        _logger.LogInformation("Credit {CreditId} marked as DEFAULTED", credit.Id);
+                    }
+
+                    if (creditsToOverdue.Count > 0 || creditsToDefaulted.Count > 0)
+                    {
+                        await context.SaveChangesAsync(stoppingToken);
                     }
                 }
                 catch (Exception exception)
                 {
-                    Console.WriteLine($"CreditPaymentWorker iteration failed: {exception.Message}");
+                    _logger.LogError(exception, "CreditPaymentWorker iteration failed");
                 }
             }
-        }
-
-        private async Task<UserAccessResponse> GetCurrentUserAsync()
-        {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrWhiteSpace(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            {
-                throw new UnauthorizedAccessException("User is not authenticated");
-            }
-
-            var userAccess = await _userServiceClient.GetUserAccessAsync(userId, CancellationToken.None);
-            if (!string.Equals(userAccess.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new UnauthorizedAccessException("User is not active");
-            }
-
-            return userAccess;
-        }
-
-        private async Task<List<UserAccessResponse>> GetAllUsersAsync()
-        {
-            var userAccess = await _userServiceClient.GetAllUsers(CancellationToken.None);
-
-            return userAccess;
         }
     }
 }
