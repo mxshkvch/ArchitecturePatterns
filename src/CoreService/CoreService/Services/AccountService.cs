@@ -183,13 +183,19 @@ public class AccountService : IAccountService
 
         //description UserTakesCredit or UserPaysCredit
 
+        bool failedPayment = false;
+        string failReason = string.Empty;
+
         switch (description)
         {
             case "UserTakesCredit":
 
                 if (masterAccount.Balance < amountMoney)
                 {
-                    throw new InvalidOperationException($"Balance on masterAccount ({masterAccount}) is lower than amountMoney = {amountMoney}");
+                    //throw new InvalidOperationException($"Balance on masterAccount ({masterAccount}) is lower than amountMoney = {amountMoney}");
+                    failedPayment = true;
+                    failReason = $"FAILED: Balance on masterAccount ({masterAccount.Id}) is lower than amountMoney = {amountMoney}";
+                    break;
                 }
 
                 masterAccount.Balance -= amountMoney;
@@ -200,13 +206,18 @@ public class AccountService : IAccountService
 
                 if (toAccount.Balance < amountMoney)
                 {
-                    throw new InvalidOperationException($"Balance on toAccount ({toAccount}) is lower than amountMoney = {amountMoney}");
+                    //throw new InvalidOperationException($"Balance on toAccount ({toAccount}) is lower than amountMoney = {amountMoney}");
+                    failedPayment = true;
+                    failReason = $"FAILED: Balance on toAccount ({toAccount.Id}) is lower than amountMoney = {amountMoney}";
+                    break;
                 }
 
                 masterAccount.Balance += amountMoney;
                 toAccount.Balance -= amountMoney;
 
                 break;
+            default:
+                throw new InvalidOperationException($"Unknown credit transaction description: {description}");
         }
         //toAccountId - это то, что принадлежит юзеру
 
@@ -241,19 +252,27 @@ public class AccountService : IAccountService
             case "UserTakesCredit":
 
                 masterTransaction.Type = TransactionType.CREDIT_GIVE;
-                masterTransaction.Description = $"Credit is given to {toAccountId}";
+                masterTransaction.Description = failedPayment
+                    ? $"Credit issue failed for {toAccountId}. {failReason}"
+                    : $"Credit is given to {toAccountId}";
 
                 toTransaction.Type = TransactionType.CREDIT_RECEIPT;
-                toTransaction.Description = $"Credit is taken from {masterAccountId}";
+                toTransaction.Description = failedPayment
+                   ? $"Credit receipt failed from {masterAccountId}. {failReason}"
+                   : $"Credit is taken from {masterAccountId}";
 
                 break;
             case "UserPaysCredit":
 
                 masterTransaction.Type = TransactionType.CREDIT_RECEIPT;
-                masterTransaction.Description = $"User's account = {toAccountId} paid";
+                masterTransaction.Description = failedPayment
+                    ? $"Payment failed from user's account = {toAccountId}. {failReason}"
+                    : $"User's account = {toAccountId} paid";
 
                 toTransaction.Type = TransactionType.CREDIT_PAYMENT;
-                toTransaction.Description = $"Pay to master account = {masterAccountId}";
+                toTransaction.Description = failedPayment
+                    ? $"Failed payment to master account = {masterAccountId}. {failReason}"
+                    : $"Pay to master account = {masterAccountId}";
 
                 break;
         }

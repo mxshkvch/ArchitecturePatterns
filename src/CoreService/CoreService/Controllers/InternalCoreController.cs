@@ -3,6 +3,7 @@ using CoreService.Data;
 using CoreService.DTOs.Requests;
 using CoreService.DTOs.Responses;
 using CoreService.Entities;
+using CoreService.Enums;
 using CoreService.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -98,7 +99,20 @@ public class InternalCoreController : ControllerBase
          
         if ((double)account.Balance < amount)
         {
-            return BadRequest();//badRequest должен быть
+            _dbContext.Transactions.Add(new Transaction
+            {
+                Id = Guid.NewGuid(),
+                AccountId = account.Id,
+                Type = TransactionType.WITHDRAWAL,
+                Amount = (decimal)amount,
+                Description = "Not enough money on balance",
+                Timestamp = DateTime.UtcNow,
+                BalanceAfter = account.Balance
+            });
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return BadRequest("Not enough money on balance");
         }
 
         account.Balance -= (decimal)amount;
