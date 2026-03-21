@@ -4,8 +4,8 @@ import { Modal, Button, Form } from "react-bootstrap";
 type Props = {
   show: boolean;
   onClose: () => void;
-  currency: "RUB" | "USD";
-  setCurrency: (value: "RUB" | "USD") => void;
+  currency: "RUB" | "USD" | "EUR";
+  setCurrency: (value: "RUB" | "USD" | "EUR") => void;
   initialDeposit: string;
   setInitialDeposit: (value: string) => void;
   onCreate: (amount: number) => void;
@@ -32,10 +32,11 @@ export const CreateAccountModal: FC<Props> = ({show, onClose, currency, setCurre
             <Form.Label>Валюта</Form.Label>
             <Form.Select
               value={currency}
-              onChange={(e) => setCurrency(e.target.value as "RUB" | "USD")}
+              onChange={(e) => setCurrency(e.target.value as "RUB" | "USD" | "EUR")}
             >
               <option value="RUB">RUB</option>
               <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
             </Form.Select>
           </Form.Group>
           <Form.Group className="mb-3">

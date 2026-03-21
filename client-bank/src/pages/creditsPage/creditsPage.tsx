@@ -5,6 +5,9 @@ import { ApplyCreditModal } from "../../features/credits/applyCreditModal";
 import type { Credit, CreditsResponse, Tariff } from "../../shared/lib/api/credits";;
 import { fetchMyCredits, payCredit, fetchTariffs, applyCredit } from "../../shared/lib/api/credits";
 
+import { fetchAllAccounts } from "../../shared/lib/api/accounts";
+import type { Account  } from "../../shared/lib/api/accounts";
+
 export const CreditsPage = () => {
   const [creditsResponse, setCreditsResponse] = useState<CreditsResponse>({
     content: [],
@@ -20,6 +23,8 @@ export const CreditsPage = () => {
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [tariffsLoading, setTariffsLoading] = useState(false);
   const [tariffsError, setTariffsError] = useState<string | null>(null);
+
+  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
 
   useEffect(() => {
     const loadCredits = async () => {
@@ -40,6 +45,19 @@ export const CreditsPage = () => {
     const interval = setInterval(loadCredits, 60_000);
     return () => clearInterval(interval);
   }, [currentPage]);
+
+  useEffect(() => {
+    const loadAllAccounts = async () => {
+      try {
+        const accounts = await fetchAllAccounts();
+        setAllAccounts(accounts);
+      } catch (err) {
+        console.error("Не удалось загрузить счета", err);
+      }
+    };
+
+    loadAllAccounts();
+  }, []);
 
   useEffect(() => {
     if (!showApplyModal) return;
@@ -88,15 +106,24 @@ export const CreditsPage = () => {
     }
   };
 
-  const handleApplyCredit = async (tariffId: string, amount: number, term: number) => {
+  const handleApplyCredit = async (
+    tariffId: string,
+    accountId: string,
+    amount: number,
+    term: number
+  ) => {
     try {
-      await applyCredit(tariffId, amount, term);
+      await applyCredit(tariffId, accountId, amount, term);
       setShowApplyModal(false);
       const data = await fetchMyCredits(currentPage + 1, 10);
       setCreditsResponse(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Ошибка при оформлении кредита");
+      if (err.response?.status === 409) {
+        alert("На мастер счете недостаточно денег для выдачи кредита");
+      } else {
+        alert("Ошибка при оформлении кредита");
+      }
     }
   };
 
@@ -112,12 +139,13 @@ export const CreditsPage = () => {
       />
 
       <ApplyCreditModal
-        show={showApplyModal}
-        onClose={() => setShowApplyModal(false)}
-        onSubmit={handleApplyCredit}
-        tariffs={tariffs}
-        loading={tariffsLoading}
-        error={tariffsError}
+          show={showApplyModal}
+          onClose={() => setShowApplyModal(false)}
+          onSubmit={handleApplyCredit}
+          tariffs={tariffs}
+          accounts={allAccounts}
+          loading={tariffsLoading}
+          error={tariffsError}
       />
 
       <Row className="mb-4">

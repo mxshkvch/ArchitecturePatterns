@@ -5,8 +5,11 @@ import { CreateAccountModal } from "../../features/accounts/сreateAccountModal"
 import { DepositModal } from "../../features/accounts/depositMoneyModal";
 import { WithdrawModal } from "../../features/accounts/withdrawMoneyModal";
 
-import { fetchAccounts, createAccount, depositToAccount, withdrawFromAccount, closeAccount  } from "../../shared/lib/api/accounts";
-import type { AccountsResponse,  } from "../../shared/lib/api/accounts";
+import { fetchAccounts, fetchAllAccounts, createAccount, depositToAccount, withdrawFromAccount, closeAccount  } from "../../shared/lib/api/accounts";
+import type { AccountsResponse, Account  } from "../../shared/lib/api/accounts";
+
+import { TransferModal } from "../../features/accounts/transferMoneyModal";
+import { transferBetweenAccounts } from "../../shared/lib/api/accounts";
 
 export const AccountsPage = () => {
   const navigate = useNavigate();
@@ -16,7 +19,7 @@ export const AccountsPage = () => {
   const pageSize = 6;
 
   const [showModal, setShowModal] = useState(false);
-  const [currency, setCurrency] = useState<"RUB" | "USD">("RUB");
+  const [currency, setCurrency] = useState<"RUB" | "USD" | "EUR">("RUB");
   const [initialDeposit, setInitialDeposit] = useState<string>("");
 
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -26,7 +29,15 @@ export const AccountsPage = () => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
 
- useEffect(() => {
+
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferAmount, setTransferAmount] = useState<string>("");
+
+  const [targetOwnAccountId, setTargetOwnAccountId] = useState("");
+  const [targetForeignAccountId, setTargetForeignAccountId] = useState("");
+  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
     const loadAccounts = async () => {
       console.log("Обновление счетов:", new Date().toLocaleTimeString());
       try {
@@ -44,6 +55,21 @@ export const AccountsPage = () => {
   }, [currentPage]);
 
   const accounts = accountsResponse?.content ?? [];
+
+  useEffect(() => {
+    const loadAllAccounts = async () => {
+      try {
+        const data = await fetchAllAccounts();
+        setAllAccounts(data);
+      } catch (err) {
+        console.error("Ошибка загрузки всех счетов:", err);
+      }
+    };
+
+    loadAllAccounts();
+  }, []);
+
+  
 
   const handleCreateAccount = async () => {
     try {
@@ -118,6 +144,29 @@ export const AccountsPage = () => {
     }
   };
 
+  const handleTransfer = async (finalTargetId: string, amount: number) => {
+    if (!selectedAccountId) return;
+
+    try {
+      await transferBetweenAccounts(selectedAccountId, finalTargetId, amount);
+
+      setShowTransferModal(false);
+      setTransferAmount("");
+      setTargetOwnAccountId("");
+      setTargetForeignAccountId("");
+
+      const data = await fetchAccounts(currentPage, pageSize);
+      setAccountsResponse(data);
+
+      const all = await fetchAllAccounts();
+      setAllAccounts(all);
+    } catch (err) {
+      console.error("Ошибка перевода:", err);
+      alert("Ошибка перевода. Проверьте счет получателя и баланс.");
+    }
+  };
+
+ 
   return (
     <>
       <CreateAccountModal
@@ -144,6 +193,20 @@ export const AccountsPage = () => {
         amount={withdrawAmount}
         setAmount={setWithdrawAmount}
         onSubmit={handleWithdraw}
+      />
+
+      <TransferModal
+        show={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        accounts={allAccounts}
+        fromAccountId={selectedAccountId}
+        targetOwnAccountId={targetOwnAccountId}
+        setTargetOwnAccountId={setTargetOwnAccountId}
+        targetForeignAccountId={targetForeignAccountId}
+        setTargetForeignAccountId={setTargetForeignAccountId}
+        amount={transferAmount}
+        setAmount={setTransferAmount}
+        onSubmit={handleTransfer}
       />
 
       <Container className="py-5">
@@ -189,6 +252,20 @@ export const AccountsPage = () => {
                       disabled={account.status === "CLOSED"}
                     >
                       Закрыть
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setSelectedAccountId(account.id);
+                        setTransferAmount("");
+                        setTargetOwnAccountId("");
+                        setTargetForeignAccountId("");
+                        setShowTransferModal(true);
+                      }}
+                      disabled={account.status === "CLOSED"}
+                    >
+                      Перевести
                     </Button>
                   </div>
                 </Card.Body>
