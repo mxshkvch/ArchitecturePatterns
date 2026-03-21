@@ -11,12 +11,17 @@ import type { AccountsResponse, Account  } from "../../shared/lib/api/accounts";
 import { TransferModal } from "../../features/accounts/transferMoneyModal";
 import { transferBetweenAccounts } from "../../shared/lib/api/accounts";
 
+import { fetchSettings, updateSettings, type AppSettings } from "../../shared/lib/api/settings";
+
 export const AccountsPage = () => {
   const navigate = useNavigate();
 
   const [accountsResponse, setAccountsResponse] = useState<AccountsResponse | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 6;
+
+  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [currency, setCurrency] = useState<"RUB" | "USD" | "EUR">("RUB");
@@ -29,17 +34,13 @@ export const AccountsPage = () => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState<string>("");
 
-
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferAmount, setTransferAmount] = useState<string>("");
-
   const [targetOwnAccountId, setTargetOwnAccountId] = useState("");
   const [targetForeignAccountId, setTargetForeignAccountId] = useState("");
-  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
 
   useEffect(() => {
     const loadAccounts = async () => {
-      console.log("Обновление счетов:", new Date().toLocaleTimeString());
       try {
         const data = await fetchAccounts(currentPage, pageSize);
         setAccountsResponse(data);
@@ -49,27 +50,29 @@ export const AccountsPage = () => {
     };
 
     loadAccounts();
-
-    const interval = setInterval(loadAccounts, 60_000); 
+    const interval = setInterval(loadAccounts, 60_000);
     return () => clearInterval(interval);
   }, [currentPage]);
 
   const accounts = accountsResponse?.content ?? [];
 
   useEffect(() => {
-    const loadAllAccounts = async () => {
+    const loadAllAccountsAndSettings = async () => {
       try {
-        const data = await fetchAllAccounts();
-        setAllAccounts(data);
+        const [all, appSettings] = await Promise.all([fetchAllAccounts(), fetchSettings()]);
+        setAllAccounts(all);
+        setSettings(appSettings);
       } catch (err) {
-        console.error("Ошибка загрузки всех счетов:", err);
+        console.error("Ошибка загрузки всех счетов или настроек:", err);
       }
     };
-
-    loadAllAccounts();
+    loadAllAccountsAndSettings();
   }, []);
 
-  
+  const refreshAccounts = async () => {
+    const data = await fetchAccounts(currentPage, pageSize);
+    setAccountsResponse(data);
+  };
 
   const handleCreateAccount = async () => {
     try {
@@ -77,8 +80,7 @@ export const AccountsPage = () => {
       setShowModal(false);
       setCurrency("RUB");
       setInitialDeposit("");
-      const data = await fetchAccounts(currentPage, pageSize);
-      setAccountsResponse(data);
+      await refreshAccounts();
     } catch (err) {
       console.error("Ошибка при создании счета:", err);
     }
@@ -90,8 +92,7 @@ export const AccountsPage = () => {
       await depositToAccount(selectedAccountId, Number(depositAmount) || 0);
       setShowDepositModal(false);
       setDepositAmount("");
-      const data = await fetchAccounts(currentPage, pageSize);
-      setAccountsResponse(data);
+      await refreshAccounts();
     } catch (err) {
       console.error("Ошибка при депозите:", err);
     }
@@ -99,28 +100,16 @@ export const AccountsPage = () => {
 
   const handleWithdraw = async () => {
     if (!selectedAccountId) return;
-
     const account = accounts.find(a => a.id === selectedAccountId);
     const numAmount = Number(withdrawAmount);
-
     if (!account) return;
-
-    if (numAmount <= 0) {
-      alert("Введите сумму больше 0");
-      return;
-    }
-
-    if (numAmount > account.balance) {
-      alert("Нельзя снять больше, чем есть на счете");
-      return;
-    }
-
+    if (numAmount <= 0) { alert("Введите сумму больше 0"); return; }
+    if (numAmount > account.balance) { alert("Нельзя снять больше, чем есть на счете"); return; }
     try {
       await withdrawFromAccount(selectedAccountId, numAmount);
       setShowWithdrawModal(false);
       setWithdrawAmount("");
-      const data = await fetchAccounts(currentPage, pageSize);
-      setAccountsResponse(data);
+      await refreshAccounts();
     } catch (err) {
       console.error("Ошибка при снятии:", err);
     }
@@ -129,16 +118,10 @@ export const AccountsPage = () => {
   const handleCloseAccount = async (accountId: string) => {
     const account = accounts.find(a => a.id === accountId);
     if (!account) return;
-
-    if (account.balance > 0) {
-      alert("Нельзя закрыть счет, пока на нём есть средства");
-      return;
-    }
-
+    if (account.balance > 0) { alert("Нельзя закрыть счет, пока на нём есть средства"); return; }
     try {
       await closeAccount(accountId);
-      const data = await fetchAccounts(currentPage, pageSize);
-      setAccountsResponse(data);
+      await refreshAccounts();
     } catch (err) {
       console.error("Ошибка при закрытии счета:", err);
     }
@@ -146,18 +129,13 @@ export const AccountsPage = () => {
 
   const handleTransfer = async (finalTargetId: string, amount: number) => {
     if (!selectedAccountId) return;
-
     try {
       await transferBetweenAccounts(selectedAccountId, finalTargetId, amount);
-
       setShowTransferModal(false);
       setTransferAmount("");
       setTargetOwnAccountId("");
       setTargetForeignAccountId("");
-
-      const data = await fetchAccounts(currentPage, pageSize);
-      setAccountsResponse(data);
-
+      await refreshAccounts();
       const all = await fetchAllAccounts();
       setAllAccounts(all);
     } catch (err) {
@@ -166,7 +144,25 @@ export const AccountsPage = () => {
     }
   };
 
- 
+  const toggleHideAccount = async (accountId: string) => {
+    if (!settings) return;
+    const newHidden = settings.hiddenAccountIds.includes(accountId)
+      ? settings.hiddenAccountIds.filter(id => id !== accountId)
+      : [...settings.hiddenAccountIds, accountId];
+    try {
+      const updated = await updateSettings(newHidden);
+      setSettings(updated);
+    } catch (err) {
+      console.error("Ошибка обновления настроек:", err);
+      alert("Не удалось обновить настройки скрытых счетов");
+    }
+  };
+
+  const displayAccounts = accounts.map(account => {
+    const isHidden = settings?.hiddenAccountIds.includes(account.id);
+    return { ...account, isHidden };
+  });
+
   return (
     <>
       <CreateAccountModal
@@ -218,70 +214,70 @@ export const AccountsPage = () => {
         </Row>
 
         <Row>
-          {accounts.map(account => (
+          {!settings ? (
+            <div className="text-center py-5">Загрузка...</div>
+          ) : (
+            displayAccounts.map(account => (
             <Col md={6} key={account.id} className="mb-4">
               <Card className="shadow-sm">
-                <Card.Body>
-                  <Card.Title>№ {account.accountNumber}</Card.Title>
-                  <Card.Subtitle className="mb-2 text-muted">
-                    Открыт: {new Date(account.createdAt).toLocaleString("ru-RU", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Card.Subtitle>
-                  <h4 className="my-3">
-                    {account.balance.toLocaleString()} {account.currency}
-                  </h4>
-                  <Badge bg={account.status === "ACTIVE" ? "success" : "secondary"} className="mb-3">
-                    {account.status}
-                  </Badge>
+                <Card.Body style={{ minHeight: "220px" }}>
+                  {account.isHidden ? (
+                    <>
+                      <Card.Title>Счет скрыт</Card.Title>
+                      <div className="d-flex gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline-primary"
+                          onClick={() => toggleHideAccount(account.id)}
+                        >
+                          Показать
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Card.Title>№ {account.accountNumber}</Card.Title>
+                      <Card.Subtitle className="mb-2 text-muted">
+                        Открыт: {new Date(account.createdAt).toLocaleString("ru-RU", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </Card.Subtitle>
+                      <h4 className="my-3">
+                        {account.balance.toLocaleString()} {account.currency}
+                      </h4>
+                      <Badge bg={account.status === "ACTIVE" ? "success" : "secondary"} className="mb-3">
+                        {account.status}
+                      </Badge>
 
-                  <div className="d-flex gap-2 flex-wrap">
-                    <Button size="sm" variant="primary" onClick={() => { setSelectedAccountId(account.id); setDepositAmount(""); setShowDepositModal(true); }} disabled={account.status === "CLOSED"}>Внести</Button>
-                    <Button size="sm" variant="warning" onClick={() => { setSelectedAccountId(account.id); setWithdrawAmount(""); setShowWithdrawModal(true); }} disabled={account.status === "CLOSED"}>Снять</Button>
-                    <Button size="sm" variant="info" onClick={() => navigate(`/accounts/${account.id}/transactions`)}>История</Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => {
-                        if (window.confirm("Вы уверены, что хотите закрыть этот счет?")) handleCloseAccount(account.id);
-                      }}
-                      disabled={account.status === "CLOSED"}
-                    >
-                      Закрыть
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setSelectedAccountId(account.id);
-                        setTransferAmount("");
-                        setTargetOwnAccountId("");
-                        setTargetForeignAccountId("");
-                        setShowTransferModal(true);
-                      }}
-                      disabled={account.status === "CLOSED"}
-                    >
-                      Перевести
-                    </Button>
-                  </div>
+                      <div className="d-flex gap-2 flex-wrap">
+                        <Button size="sm" variant="primary" onClick={() => { setSelectedAccountId(account.id); setDepositAmount(""); setShowDepositModal(true); }} disabled={account.status === "CLOSED"}>Внести</Button>
+                        <Button size="sm" variant="warning" onClick={() => { setSelectedAccountId(account.id); setWithdrawAmount(""); setShowWithdrawModal(true); }} disabled={account.status === "CLOSED"}>Снять</Button>
+                        <Button size="sm" variant="info" onClick={() => navigate(`/accounts/${account.id}/transactions`)}>История</Button>
+                        <Button size="sm" variant="danger" onClick={() => { if (window.confirm("Вы уверены, что хотите закрыть этот счет?")) handleCloseAccount(account.id); }} disabled={account.status === "CLOSED"}>Закрыть</Button>
+                        <Button size="sm" variant="secondary" onClick={() => { setSelectedAccountId(account.id); setTransferAmount(""); setTargetOwnAccountId(""); setTargetForeignAccountId(""); setShowTransferModal(true); }} disabled={account.status === "CLOSED"}>Перевести</Button>
+                        <Button size="sm" variant="outline-secondary" onClick={() => toggleHideAccount(account.id)}>
+                          Скрыть
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </Card.Body>
               </Card>
             </Col>
-          ))}
-        </Row>
+              ))
+            )}
+          </Row>
 
         <Row className="mt-4">
           <Col className="d-flex justify-content-center">
             <Pagination>
               <Pagination.Prev disabled={currentPage === 0} onClick={() => setCurrentPage(prev => prev - 1)} />
               {Array.from({ length: accountsResponse?.page.totalPages ?? 0 }, (_, i) => (
-                <Pagination.Item key={i} active={i === currentPage} onClick={() => setCurrentPage(i)}>
-                  {i + 1}
-                </Pagination.Item>
+                <Pagination.Item key={i} active={i === currentPage} onClick={() => setCurrentPage(i)}>{i + 1}</Pagination.Item>
               ))}
               <Pagination.Next disabled={currentPage === (accountsResponse?.page.totalPages ?? 1) - 1} onClick={() => setCurrentPage(prev => prev + 1)} />
             </Pagination>
