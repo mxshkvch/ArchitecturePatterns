@@ -114,7 +114,7 @@ public class InternalCoreController : ControllerBase
             {
                 Id = Guid.NewGuid(),
                 AccountId = account.Id,
-                Type = TransactionType.WITHDRAWAL,
+                Type = TransactionType.PAYMENT_FAIL,
                 Amount = (decimal)amount,
                 Description = "Not enough money on balance",
                 Timestamp = DateTime.UtcNow,
