@@ -91,6 +91,17 @@ public class InternalCoreController : ControllerBase
             accountNew.Balance -= (decimal)amount;
             accountNew.Balance = Math.Round(accountNew.Balance, 2);
 
+            _dbContext.Transactions.Add(new CoreService.Entities.Transaction
+            {
+                Id = Guid.NewGuid(),
+                AccountId = accountNew.Id,
+                Type = CoreService.Enums.TransactionType.CREDIT_PAYMENT,
+                Amount = (decimal)amount,
+                Description = "Credit payment",
+                Timestamp = DateTime.UtcNow,
+                BalanceAfter = accountNew.Balance
+            });
+
             await _dbContext.SaveChangesAsync(cancellationToken);
 
             return Ok(true);
@@ -98,11 +109,22 @@ public class InternalCoreController : ControllerBase
          
         if ((double)account.Balance < amount)
         {
-            return BadRequest();//badRequest должен быть
+            return BadRequest("Insufficient funds");
         }
 
         account.Balance -= (decimal)amount;
         account.Balance = Math.Round(account.Balance, 2);
+
+        _dbContext.Transactions.Add(new CoreService.Entities.Transaction
+        {
+            Id = Guid.NewGuid(),
+            AccountId = account.Id,
+            Type = CoreService.Enums.TransactionType.CREDIT_PAYMENT,
+            Amount = (decimal)amount,
+            Description = "Credit payment",
+            Timestamp = DateTime.UtcNow,
+            BalanceAfter = account.Balance
+        });
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
