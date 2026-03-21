@@ -42,7 +42,9 @@ public sealed class RabbitMqAccountOperationWorker(
                 var message = JsonSerializer.Deserialize<AccountOperationMessage>(eventArgs.Body.Span);
                 if (message == null)
                 {
-                    throw new InvalidOperationException("Invalid operation payload");
+                    logger.LogError("Invalid operation payload, discarding message");
+                    await channel.BasicAckAsync(eventArgs.DeliveryTag, false, stoppingToken);
+                    return;
                 }
 
                 using var scope = serviceScopeFactory.CreateScope();
@@ -54,8 +56,8 @@ public sealed class RabbitMqAccountOperationWorker(
             }
             catch (Exception exception)
             {
-                logger.LogError(exception, "Failed to process account operation message");
-                await channel.BasicNackAsync(eventArgs.DeliveryTag, false, true, stoppingToken);
+                logger.LogError(exception, "Failed to process account operation message, discarding");
+                await channel.BasicAckAsync(eventArgs.DeliveryTag, false, stoppingToken);
             }
         };
 
