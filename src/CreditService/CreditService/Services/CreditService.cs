@@ -83,7 +83,10 @@ namespace CreditService.Services
                 throw new KeyNotFoundException("User's Account does not exists");
             }
 
-            var remainingAmountMoney = request.amount * (1 + (tariff.interestRate / 100.0) * (DateTime.UtcNow.AddMinutes(request.term) - DateTime.UtcNow).TotalDays / 365.0);
+            var termMinutes = request.term; // срок в минутах
+            var minutesInYear = 60.0; // условный год = 60 минут
+            var remainingAmountMoney = request.amount *
+                (1 + (tariff.interestRate / 100.0) * (termMinutes / minutesInYear));
 
             var credit = new Credit
             {
@@ -234,7 +237,7 @@ namespace CreditService.Services
                 }
 
                 double amountToPay = credit.principal * (credit.interestRate / 100.0) *
-                    ((credit.endDate - credit.startDate).TotalDays / 365.0);
+                    ((credit.endDate - credit.startDate).TotalMinutes / 60.0);
 
                 amountToPay = Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero);
 
