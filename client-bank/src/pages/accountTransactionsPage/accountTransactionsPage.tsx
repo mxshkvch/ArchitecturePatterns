@@ -1,36 +1,32 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Container, Table, Pagination, Spinner } from "react-bootstrap";
-import { getTransactions } from "../../shared/lib/api/transactionsHistory";
-import type { Transaction } from "../../shared/lib/api/transactionsHistory";
+import { Container } from "react-bootstrap";
 import { useTheme } from "../../shared/lib/provider/themeProvider";
+import { fetchTransactionsForAccount } from "../../features/accounts/useCases/fetchTransactions";
+import type { Transaction } from "../../shared/lib/api/transactionsHistory";
+import { TransactionTable } from "../../entities/transactionTable";
+import { PaginationComponent } from "../../shared/ui/components/pagination"
+import { SpinnerComponent } from "../../shared/ui/components/spinner";
 
 export const AccountTransactionsPage = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 6;
   const [totalPages, setTotalPages] = useState(0);
+  const pageSize = 6;
 
   const { theme } = useTheme();
 
-  const fetchTransactions = async (page: number) => {
+  useEffect(() => {
     if (!accountId) return;
     setLoading(true);
-    try {
-      const data = await getTransactions(accountId, page, pageSize);
-      setTransactions(data.content);
-      setTotalPages(data.page.totalPages);
-    } catch (error) {
-      console.error("Ошибка при загрузке транзакций:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTransactions(currentPage);
+    fetchTransactionsForAccount(accountId, currentPage, pageSize)
+      .then(({ transactions, totalPages }) => {
+        setTransactions(transactions);
+        setTotalPages(totalPages);
+      })
+      .finally(() => setLoading(false));
   }, [accountId, currentPage]);
 
   return (
@@ -38,66 +34,16 @@ export const AccountTransactionsPage = () => {
       <h2>История операций по счету {accountId}</h2>
 
       {loading ? (
-        <div className="text-center my-5">
-          <Spinner
-            animation="border"
-            variant={theme === "DARK" ? "light" : "dark"}
-          />
-        </div>
+        <SpinnerComponent theme={theme} />
       ) : (
         <>
-          <Table
-            striped
-            bordered
-            hover
-            variant={theme === "DARK" ? "dark" : "light"}
-          >
-            <thead>
-              <tr>
-                <th>Дата</th>
-                <th>Тип</th>
-                <th>Сумма</th>
-                <th>Баланс после</th>
-                <th>Описание</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((txn) => (
-                <tr key={txn.id}>
-                  <td>{new Date(txn.timestamp).toLocaleString()}</td>
-                  <td>{txn.type}</td>
-                  <td>{txn.amount.toLocaleString()}</td>
-                  <td>{txn.balanceAfter.toLocaleString()}</td>
-                  <td>{txn.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-
-          <div className="d-flex justify-content-center">
-            <Pagination>
-              <Pagination.Prev
-                disabled={currentPage === 0}
-                onClick={() => setCurrentPage((prev) => prev - 1)}
-                className={theme === "DARK" ? "bg-dark text-light" : ""}
-              />
-              {Array.from({ length: totalPages }, (_, i) => (
-                <Pagination.Item
-                  key={i}
-                  active={i === currentPage}
-                  onClick={() => setCurrentPage(i)}
-                  className={theme === "DARK" ? "bg-dark text-light border-light" : ""}
-                >
-                  {i + 1}
-                </Pagination.Item>
-              ))}
-              <Pagination.Next
-                disabled={currentPage === totalPages - 1}
-                onClick={() => setCurrentPage((prev) => prev + 1)}
-                className={theme === "DARK" ? "bg-dark text-light" : ""}
-              />
-            </Pagination>
-          </div>
+          <TransactionTable transactions={transactions} theme={theme} />
+          <PaginationComponent
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            theme={theme}
+          />
         </>
       )}
     </Container>
