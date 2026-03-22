@@ -55,7 +55,10 @@ namespace CoreService.Migrations
                     b.HasIndex("AccountNumber")
                         .IsUnique();
 
-                    b.ToTable("Accounts");
+                    b.ToTable("Accounts", t =>
+                        {
+                            t.HasCheckConstraint("CK_Accounts_Balance_NonNegative", "\"Balance\" >= 0");
+                        });
                 });
 
             modelBuilder.Entity("CoreService.Entities.Credit", b =>

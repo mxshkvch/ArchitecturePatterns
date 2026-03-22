@@ -2,10 +2,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
+using NSwag;
+using NSwag.Generation.Processors.Security;
 using UserService.Contracts.Common.Abstractions;
 using UserService.Contracts.Responses;
 using UserService.Data;
@@ -16,53 +17,34 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
         policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
+});
+builder.Services.AddOpenApiDocument(options =>
+{
+    options.Title = "UserService API";
+    options.AddSecurity("bearerAuth", new OpenApiSecurityScheme
+    {
+        Type = OpenApiSecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "JWT Authorization header using the Bearer scheme."
+    });
+    options.OperationProcessors.Add(new AspNetCoreOperationSecurityScopeProcessor("bearerAuth"));
 });
 
 builder.Services.AddHttpContextAccessor();
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Введите только JWT токен (без префикса Bearer)"
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
 
 builder.Services.AddDbContext<UserDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
@@ -92,7 +74,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.UseCors();
+app.UseCors("AllowAll");
 
 app.UseExceptionHandler(errorApp =>
 {
@@ -132,10 +114,11 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-app.UseCors();
-
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseOpenApi();
+    app.UseSwaggerUi();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -143,8 +126,11 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
+Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
+
 using (var scope = app.Services.CreateScope())
 {
+
     var db = scope.ServiceProvider.GetRequiredService<UserDbContext>();
 
     db.Database.Migrate();
@@ -153,7 +139,7 @@ using (var scope = app.Services.CreateScope())
     {
         var admin = new UserService.Domain.User
         {
-            Id = Guid.NewGuid(),
+            Id = MASTER_ACCOUNT,
             Email = "admin@system.local",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
             FirstName = "System",

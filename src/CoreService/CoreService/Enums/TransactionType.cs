@@ -6,5 +6,7 @@ public enum TransactionType
     WITHDRAWAL,
     TRANSFER,
     CREDIT_PAYMENT,
-    CREDIT_RECEIPT
+    CREDIT_RECEIPT,
+    CREDIT_GIVE,
+    PAYMENT_FAIL
 }

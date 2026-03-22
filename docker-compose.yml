@@ -2,7 +2,9 @@
 
 services:
   postgres:
-    image: postgres:15-alpine
+    build:
+      context: .
+      dockerfile: postgres/Dockerfile
     container_name: bank_postgres
     environment:
       POSTGRES_USER: postgres
@@ -11,12 +13,26 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: bank_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   coreservice:
     build:
@@ -28,8 +44,17 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=MyDb;Username=postgres;Password=postgres
+      - Jwt__Issuer=black.auth
+      - Jwt__Audience=black.api
+      - RabbitMq__HostName=rabbitmq
+      - RabbitMq__Port=5672
+      - RabbitMq__UserName=guest
+      - RabbitMq__Password=guest
+      - RabbitMq__QueueName=core.account.operations
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   userservice:
@@ -40,11 +65,45 @@ services:
     ports:
       - "60882:8080"
     environment:
+
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=UserService;Username=postgres;Password=postgres
+      - Jwt__Issuer=black.auth
+      - Jwt__Audience=black.api
     depends_on:
       postgres:
         condition: service_healthy
+
+  authservice:
+    build:
+      context: .
+      dockerfile: src/AuthService/Dockerfile
+    container_name: bank_authservice
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=AuthDb;Username=postgres;Password=postgres
+      - Services__UserServiceUrl=http://userservice:8080/
+      - Jwt__Issuer=black.auth
+      - Jwt__Audience=black.api
+      - OAuth__Clients__0__ClientId=credit-service
+      - OAuth__Clients__0__ClientSecret=credit-service-secret
+      - OAuth__Clients__0__Role=SERVICE
+      - OAuth__Clients__0__RedirectUris__0=
+      - OAuth__Clients__1__ClientId=client-bank
+      - OAuth__Clients__1__ClientSecret=
+      - OAuth__Clients__1__Role=CLIENT
+      - OAuth__Clients__1__RedirectUris__0=http://localhost:3000/callback
+      - OAuth__Clients__2__ClientId=staff-service
+      - OAuth__Clients__2__ClientSecret=
+      - OAuth__Clients__2__Role=EMPLOYEE
+      - OAuth__Clients__2__RedirectUris__0=http://localhost:3001/callback
+    depends_on:
+      postgres:
+        condition: service_healthy
+      userservice:
+        condition: service_started
 
   creditservice:
     build:
@@ -57,6 +116,30 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=CreditService;Username=postgres;Password=postgres
       - Services__UserServiceUrl=http://userservice:8080/
+      - Services__CoreServiceUrl=http://coreservice:8080/
+      - Services__AuthServiceUrl=http://authservice:8080/
+      - OAuth__ClientId=credit-service
+      - OAuth__ClientSecret=credit-service-secret
+      - Jwt__Issuer=black.auth
+      - Jwt__Audience=black.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      authservice:
+        condition: service_started
+
+  bffservice:
+    build:
+      context: .
+      dockerfile: src/BffService/Dockerfile
+    container_name: bank_bffservice
+    ports:
+      - "5208:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=BffService;Username=postgres;Password=postgres
+      - Jwt__Issuer=black.auth
+      - Jwt__Audience=black.api
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,6 +153,7 @@ services:
       - "3000:80"
     depends_on:
       - coreservice
+      - bffservice
 
   staff-service:
     build:

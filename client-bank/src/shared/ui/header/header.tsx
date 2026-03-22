@@ -1,8 +1,11 @@
 import { Navbar, Nav, Container, Button } from "react-bootstrap";
 import { NavLink, useNavigate } from "react-router-dom";
 
+import { useTheme } from "../../lib/provider/themeProvider";
+
 export const Header = () => {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
@@ -10,7 +13,7 @@ export const Header = () => {
   };
 
   return (
-    <Navbar bg="dark" variant="dark" expand="lg">
+    <Navbar bg={theme === "DARK" ? "dark" : "light"} variant={theme === "DARK" ? "dark" : "light"} expand="lg">
       <Container>
         <Navbar.Brand>Bank App</Navbar.Brand>
 
@@ -24,7 +27,16 @@ export const Header = () => {
           </Nav.Link>
         </Nav>
 
-        <Button variant="outline-light" size="sm" onClick={handleLogout}>
+        <Button
+          variant={theme === "DARK" ? "outline-light" : "outline-dark"}
+          size="sm"
+          onClick={toggleTheme}
+          className="me-2"
+        >
+          {theme === "DARK" ? "☀️" : "🌙"}
+        </Button>
+
+        <Button variant="outline-danger" size="sm" onClick={handleLogout}>
           Выйти
         </Button>
       </Container>

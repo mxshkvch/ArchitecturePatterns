@@ -28,6 +28,12 @@ namespace CreditService.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("LastPaymentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PaymentFrequencyMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("accountId")
                         .HasColumnType("uuid");
 

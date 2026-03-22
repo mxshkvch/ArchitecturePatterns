@@ -3,7 +3,7 @@ import axios from "axios";
 export type Transaction = {
   id: string;
   accountId: string;
-  type: "DEPOSIT" | "WITHDRAWAL";
+  type: "DEPOSIT" | "WITHDRAWAL" | "TRANSFER" | "CREDIT_PAYMENT" | "CREDIT_RECEIPT" | "CREDIT_GIVE";
   amount: number;
   description: string;
   timestamp: string;
@@ -20,13 +20,9 @@ export type TransactionsResponse = {
   };
 };
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "http://89.23.105.66:5000/api";
 
-export const getTransactions = async (
-  accountId: string,
-  page: number,
-  size: number
-): Promise<TransactionsResponse> => {
+export const getTransactions = async ( accountId: string, page: number, size: number ): Promise<TransactionsResponse> => {
   const token = localStorage.getItem("accessToken");
   const response = await axios.get<TransactionsResponse>(
     `${API_BASE}/accounts/${accountId}/transactions`,

@@ -1,17 +1,19 @@
 import axios from "axios";
 
-export type Account = {
+export type AccountStatus = "ACTIVE" | "CLOSED";
+
+export interface Account {
   id: string;
   accountNumber: string;
   userId: string;
   balance: number;
   currency: string;
-  status: "ACTIVE" | "CLOSED";
+  status: AccountStatus;
   createdAt: string;
   closedAt: string | null;
-};
+}
 
-export type AccountsResponse = {
+export interface AccountsResponse {
   content: Account[];
   page: {
     page: number;
@@ -19,65 +21,106 @@ export type AccountsResponse = {
     totalElements: number;
     totalPages: number;
   };
-};
+}
 
-const API_BASE = "http://localhost:5000/api";
 
-const getAuthHeaders = () => {
+
+export interface CreateAccountRequest {
+  Currency: "RUB" | "USD" | "EUR";
+  InitialDeposit: number;
+}
+
+export interface CreateAccountResponse extends Account {}
+
+export interface DepositWithdrawRequest {
+  Amount: number;
+  Description?: string;
+}
+
+export interface DepositWithdrawResponse {
+  success: boolean;
+  updatedAccount: Account;
+}
+
+export interface TransferRequest {
+  amountMoney: number;
+}
+
+export interface TransferResponse {
+  success: boolean;
+  fromAccount: Account;
+  toAccount: Account;
+}
+
+
+
+const API_BASE = "http://89.23.105.66:5000/api";
+
+const getAuthHeaders = (): { Authorization: string } => {
   const token = localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  if (!token) throw new Error("Access token is missing");
+  return { Authorization: `Bearer ${token}` };
 };
+
+
 
 export const fetchAccounts = async (page: number, size: number): Promise<AccountsResponse> => {
-  const response = await axios.get<AccountsResponse>(`${API_BASE}/accounts`, {
+  const res = await axios.get<AccountsResponse>(`${API_BASE}/accounts`, {
     params: { page, size },
     headers: getAuthHeaders(),
   });
-  return response.data;
+  return res.data;
 };
 
-export const createAccount = async (currency: "RUB" | "USD", initialDeposit: number) => {
-  const response = await axios.post(`${API_BASE}/accounts`, {
-    Currency: currency,
-    InitialDeposit: initialDeposit,
-  }, {
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-    },
-  });
-  return response.data;
-};
-
-export const depositToAccount = async (accountId: string, amount: number, description = "") => {
-  const response = await axios.post(`${API_BASE}/accounts/${accountId}/deposit`, {
-    Amount: amount,
-    Description: description,
-  }, {
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-    },
-  });
-  return response.data;
-};
-
-export const withdrawFromAccount = async (accountId: string, amount: number, description = "") => {
-  const response = await axios.post(`${API_BASE}/accounts/${accountId}/withdraw`, {
-    Amount: amount,
-    Description: description,
-  }, {
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(),
-    },
-  });
-  return response.data;
-};
-
-export const closeAccount = async (accountId: string) => {
-  const response = await axios.delete(`${API_BASE}/accounts/${accountId}`, {
+export const fetchAllAccounts = async (): Promise<Account[]> => {
+  const res = await axios.get<AccountsResponse>(`${API_BASE}/accounts`, {
+    params: { page: 0, size: 1000 },
     headers: getAuthHeaders(),
   });
-  return response.data;
+  return res.data.content;
+};
+
+export const createAccount = async (currency: "RUB" | "USD" | "EUR", initialDeposit: number): Promise<CreateAccountResponse> => {
+  const req: CreateAccountRequest = { Currency: currency, InitialDeposit: initialDeposit };
+  const res = await axios.post<CreateAccountResponse>(`${API_BASE}/accounts`, req, {
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+  });
+  return res.data;
+};
+
+export const depositToAccount = async (accountId: string, amount: number, description = ""): Promise<DepositWithdrawResponse> => {
+  const req: DepositWithdrawRequest = { Amount: amount, Description: description };
+  const res = await axios.post<DepositWithdrawResponse>(
+    `${API_BASE}/accounts/${accountId}/deposit`,
+    req,
+    { headers: { "Content-Type": "application/json", ...getAuthHeaders() } }
+  );
+  return res.data;
+};
+
+export const withdrawFromAccount = async (accountId: string, amount: number, description = ""): Promise<DepositWithdrawResponse> => {
+  const req: DepositWithdrawRequest = { Amount: amount, Description: description };
+  const res = await axios.post<DepositWithdrawResponse>(
+    `${API_BASE}/accounts/${accountId}/withdraw`,
+    req,
+    { headers: { "Content-Type": "application/json", ...getAuthHeaders() } }
+  );
+  return res.data;
+};
+
+export const closeAccount = async (accountId: string): Promise<Account> => {
+  const res = await axios.delete<Account>(`${API_BASE}/accounts/${accountId}`, {
+    headers: getAuthHeaders(),
+  });
+  return res.data;
+};
+
+export const transferBetweenAccounts = async (fromAccountId: string, toAccountId: string, amount: number): Promise<TransferResponse> => {
+  const req: TransferRequest = { amountMoney: amount };
+  const res = await axios.post<TransferResponse>(
+    `${API_BASE}/accounts/${fromAccountId}/transfer/${toAccountId}`,
+    req,
+    { headers: { "Content-Type": "application/json", ...getAuthHeaders() } }
+  );
+  return res.data;
 };

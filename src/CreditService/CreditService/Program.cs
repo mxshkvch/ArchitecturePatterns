@@ -3,11 +3,16 @@ using CreditService.Data.Responses;
 using CreditService.Domain.Abstractions;
 using CreditService.Services;
 using CreditService.Services.Abstractions;
+using CreditService.Validators;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using NSwag;
+using NSwag.Generation.Processors.Security;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -18,46 +23,34 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
         policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
-
-builder.Services.AddHttpContextAccessor();
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddOpenApiDocument(options =>
 {
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    options.Title = "CreditService API";
+    options.AddSecurity("bearerAuth", new OpenApiSecurityScheme
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
+        Type = OpenApiSecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Введите только JWT токен (без префикса Bearer)"
+        Description = "JWT Authorization header using the Bearer scheme."
     });
+    options.OperationProcessors.Add(new AspNetCoreOperationSecurityScopeProcessor("bearerAuth"));
+});
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<ApplyForCreditRequestValidator>();
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
+builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
 });
 
 builder.Services.AddHostedService<CreditPaymentWorker>();
@@ -66,6 +59,8 @@ builder.Services.AddDbContext<CreditDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<ICreditService, CreditService.Services.CreditService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IServiceTokenProvider, ServiceTokenProvider>();
 
 var userServiceUrl = builder.Configuration["Services:UserServiceUrl"]
     ?? throw new ArgumentException("Services:UserServiceUrl cannot be null");
@@ -111,19 +106,9 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-});
-
 var app = builder.Build();
 
-app.UseCors();
+app.UseCors("AllowAll");
 
 app.UseExceptionHandler(errorApp =>
 {
@@ -140,11 +125,11 @@ app.UseExceptionHandler(errorApp =>
         var (statusCode, title) = exception switch
         {
             ArgumentException => ((int)HttpStatusCode.BadRequest, "Некорректные данные запроса"),
-            InvalidOperationException => ((int)HttpStatusCode.Conflict, "Конфликт данных"),
+            InvalidOperationException => ((int)HttpStatusCode.Conflict, exception.Message),
             ForbiddenException => ((int)HttpStatusCode.Forbidden, "Доступ запрещен"),
             KeyNotFoundException => ((int)HttpStatusCode.NotFound, "Ресурс не найден"),
             UnauthorizedAccessException => ((int)HttpStatusCode.Unauthorized, "Доступ запрещён"),
-            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, "Ошибка внешнего сервиса"),
+            HttpRequestException httpEx when httpEx.StatusCode.HasValue => ((int)httpEx.StatusCode.Value, httpEx.Message),
             HttpRequestException => ((int)HttpStatusCode.BadGateway, "Внешний сервис недоступен"),
             _ => ((int)HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера")
         };
@@ -163,10 +148,18 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-app.UseCors();
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<CreditDbContext>();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+    dbContext.Database.Migrate();
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseOpenApi();
+    app.UseSwaggerUi();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

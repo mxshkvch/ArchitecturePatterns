@@ -38,19 +38,13 @@ public sealed class UserManagementService : IUserManagementService
         return new UsersResponse(users.Select(x => x.ToResponse()).ToArray(), page);
     }
 
-    public async Task<UserResponse> CreateUserAsync(RegisterClientRequest request, CancellationToken cancellationToken)
+    public async Task<UserResponse> CreateUserProfileAsync(CreateUserProfileRequest request, CancellationToken cancellationToken)
     {
-        await EnsureCurrentUserIsAdminAsync(cancellationToken);
         await EnsureEmailUniqueAsync(request.Email, cancellationToken);
 
-        var user = BuildUser(request);
-
-        if (user.Role != UserRole.CLIENT && user.Role != UserRole.EMPLOYEE)
-            throw new InvalidOperationException("User can have only EMPLOYEE or CLIENT role.");
-
+        var user = BuildUser(request.UserId, request.Email, request.Role, request.FirstName, request.LastName, request.Phone);
         await PersistCreatedUserAsync(user, cancellationToken);
 
-        _logger.LogInformation("Admin created user {UserId} with role {Role}", user.Id, user.Role);
         return user.ToResponse();
     }
 
@@ -134,19 +128,19 @@ public sealed class UserManagementService : IUserManagementService
         }
     }
 
-    private static User BuildUser(RegisterClientRequest request)
+    private static User BuildUser(Guid userId, string email, UserRole role, string firstName, string lastName, string? phone)
     {
         return new User
         {
-            Id = Guid.NewGuid(),
-            Email = request.Email,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Phone = request.Phone,
-            Role = request.Role,
+            Id = userId,
+            Email = email,
+            FirstName = firstName,
+            LastName = lastName,
+            Phone = phone,
+            Role = role,
             Status = UserStatus.ACTIVE,
             CreatedAt = DateTimeOffset.UtcNow,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+            PasswordHash = string.Empty
         };
     }
 

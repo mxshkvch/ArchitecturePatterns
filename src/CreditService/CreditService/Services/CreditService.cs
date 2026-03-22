@@ -5,12 +5,16 @@ using CreditService.Domain.Abstractions;
 using CreditService.Domain.Enum;
 using CreditService.Domain.Models;
 using CreditService.Services.Abstractions;
+using CreditService.Services.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Threading;
 using UserService.Data;
 
 namespace CreditService.Services
 {
+    //Начислять кредит на счет.
+    //снятие денег с мастер счета
     public class CreditService : ICreditService
     {
         private readonly CreditDbContext _context;
@@ -18,6 +22,7 @@ namespace CreditService.Services
         private readonly IUserServiceClient _userServiceClient;
         private readonly ICoreServiceClient _coreServiceClient;
         public readonly Guid _FAILED_CORE = Guid.Parse("00000000-000b-0000-0000-000000000000");
+        public readonly Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
         public CreditService(
             CreditDbContext context,
@@ -42,7 +47,8 @@ namespace CreditService.Services
             return await BuildTariffResponse(query, page, size);
         }
 
-        public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)//account+
+        //masterAccount
+        public async Task<Credit> ApplyCredit(ApplyForCreditRequest request)//account 
         {
             if (request == null)
                 throw new ArgumentException("Request is null");
@@ -61,12 +67,26 @@ namespace CreditService.Services
             if (tariff.status != StatusCredit.ACTIVE)
                 throw new InvalidOperationException("Tariff is not active");
 
-            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, CancellationToken.None);
+            Guid accountId = request.accountId;
 
-            if (accountId == _FAILED_CORE)
-                throw new InvalidOperationException("Account does not exist");
+            //запрос со снятием денег с мастер счета
 
-            var remainingAmountMoney = request.amount * (1 + tariff.interestRate * (DateTime.UtcNow.AddDays(request.term) - DateTime.UtcNow).TotalDays / 365.0);
+            //ФРОНТЕНД - ДОБАВИТЬ ВЫБОР ИМЕЮЩИХСЯ СЧЕТОВ ЧТОБ ОФОРМИТЬ НА НИХ КРЕДИТ
+
+            //if (accountId == _FAILED_CORE)
+            //    throw new InvalidOperationException("Account does not exist");
+
+            Guid? isAccountExists = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, accountId, CancellationToken.None);
+
+            if (isAccountExists == null)
+            {
+                throw new KeyNotFoundException("User's Account does not exists");
+            }
+
+            var termMinutes = request.term; // срок в минутах
+            var minutesInYear = 60.0; // условный год = 60 минут
+            var remainingAmountMoney = request.amount *
+                (1 + (tariff.interestRate / 100.0) * (termMinutes / minutesInYear));
 
             var credit = new Credit
             {
@@ -78,10 +98,17 @@ namespace CreditService.Services
                 interestRate = tariff.interestRate,
                 status = StatusCredit.ACTIVE,
                 startDate = DateTime.UtcNow,
-                endDate = DateTime.UtcNow.AddDays(request.term),
-                accountId = accountId//
+                endDate = DateTime.UtcNow.AddMinutes(request.term),
+                accountId = accountId,
+                PaymentFrequencyMinutes = 1,
+                LastPaymentDate = DateTime.UtcNow
             };
 
+            bool isPaid = await _coreServiceClient.MasterAccountTransaction(currentUser.Id, accountId, (decimal)credit.principal, MasterDescription.UserTakesCredit.ToString(), CancellationToken.None);
+            if (!isPaid)
+            {
+                throw new InvalidOperationException("Master account transfer was not completed");
+            }
             _context.Credits.Add(credit);
             await _context.SaveChangesAsync();
 
@@ -116,8 +143,8 @@ namespace CreditService.Services
 
             return credit;
         }
-
-        public async Task PayCreditById(CreditPaymentRequest request, Guid creditId)//pay need+
+        //masterAccount
+        private async Task PayCreditById(CreditPaymentRequest request, Guid creditId)//pay need+
         {
             if (request == null)
                 throw new ArgumentException("Request is null");
@@ -141,7 +168,7 @@ namespace CreditService.Services
                 //throw new InvalidOperationException("Payment amount exceeds remaining credit");
                 request.amount = credit.remainingAmount;
 
-            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, CancellationToken.None);
+            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser.Id, request.accountId, CancellationToken.None);
 
             if (accountId == _FAILED_CORE)
                 throw new InvalidOperationException("Account does not exist");
@@ -158,50 +185,99 @@ namespace CreditService.Services
             if (credit.remainingAmount <= 0)
                 credit.status = StatusCredit.PAID;
 
+            credit.LastPaymentDate = DateTimeOffset.UtcNow;
+
             _context.Credits.Update(credit);
             await _context.SaveChangesAsync();
         }
+        
+        //автоматически списывать только с того счета, который мы указали.
+        //иначе уведомлять что какие-то проблемы со счетом
+        //продумать то, чтобы привязанный счет было невозможно закрыть.!!!!
 
-        public async Task AutomaticPayCreditById(Guid creditId)//pay need++++
+        //в фоновом процессе выбрасывать ошибку НЕЛЬЗЯ!
+        //добавить в историю транзакций
+
+        //masterAccount
+        public async Task AutomaticPayCreditById(Guid creditId, Guid accountId)
         {
-            if (creditId == Guid.Empty)
-                throw new ArgumentException("CreditId cannot be empty");
-
-            Guid currentUser = await _context.Credits.Where(c => c.Id == creditId).Select(c => c.userId).FirstAsync();
-
-            var credit = await _context.Credits.FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
-            if (credit == null)
-                throw new KeyNotFoundException("Credit not found");
-
-            if (credit.status != StatusCredit.ACTIVE)
-                throw new InvalidOperationException("Credit is not active");
-
-            double amountToPay = (double)credit.remainingAmount * (double)credit.interestRate *
-                     ((credit.endDate - credit.startDate).TotalDays / 365.0);
-
-
-            if (amountToPay > credit.remainingAmount)
-                amountToPay = credit.remainingAmount;
-
-            Guid accountId = await _coreServiceClient.GetUserAccountAsync(currentUser, CancellationToken.None);
-
-            if (accountId == _FAILED_CORE)
-                throw new InvalidOperationException("Account does not exist");
-
-            bool isPaid = await _coreServiceClient.PayUserAccountCreditAsync(currentUser, accountId, (double)amountToPay, CancellationToken.None);
-
-            if (!isPaid)
+            try
             {
-                throw new InvalidOperationException("Payment is not possible. Issue in balance or account");
+                if (creditId == Guid.Empty)
+                {
+                    return;
+                }
+
+                if (accountId == Guid.Empty)
+                {
+                    return;
+                }
+
+                Guid currentUser = await _context.Credits
+                    .Where(c => c.Id == creditId)
+                    .Select(c => c.userId)
+                    .FirstAsync();
+
+                //Guid accountId = await _context.Credits
+                //    .Where(c => c.Id == creditId)
+                //    .Select(c => c.accountId)
+                //    .FirstAsync();
+
+                var credit = await _context.Credits
+                    .FirstOrDefaultAsync(c => c.Id == creditId && c.userId == currentUser);
+
+                if (credit == null)
+                {
+                    return;
+                }
+
+                if (credit.status != StatusCredit.ACTIVE)
+                {
+                    return;
+                }
+
+                double amountToPay = credit.principal * (credit.interestRate / 100.0) *
+                    ((credit.endDate - credit.startDate).TotalMinutes / 60.0);
+
+                amountToPay = Math.Round(amountToPay, 2, MidpointRounding.AwayFromZero);
+
+                if (amountToPay > credit.remainingAmount)
+                    amountToPay = credit.remainingAmount;
+
+                if (amountToPay <= 0)
+                {
+                    return;
+                }
+
+                Guid accountIdAnswer = await _coreServiceClient.GetUserAccountAsync(currentUser, accountId, CancellationToken.None);
+
+                if (accountIdAnswer == _FAILED_CORE)
+                {
+                    return;
+                }
+
+                bool isPaid = await _coreServiceClient.MasterAccountTransaction(currentUser, accountId, (decimal)amountToPay, MasterDescription.UserPaysCredit.ToString(), CancellationToken.None);
+
+                if (!isPaid)
+                {
+                    return;
+                }
+
+                credit.remainingAmount -= amountToPay;
+                credit.remainingAmount = Math.Round(credit.remainingAmount, 2, MidpointRounding.AwayFromZero);
+
+                if (credit.remainingAmount <= 0)
+                    credit.status = StatusCredit.PAID;
+
+                _context.Credits.Update(credit);
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"AutomaticPayCreditById failed. CreditId = {creditId}\nAccountId = {accountId}\n");
             }
 
-            credit.remainingAmount -= (double)amountToPay;
-
-            if (credit.remainingAmount <= 0)
-                credit.status = StatusCredit.PAID;
-
-            _context.Credits.Update(credit);
-            await _context.SaveChangesAsync();
         }
 
         public async Task<CreditsResponse> GetAllCreditsOfAllUsers(int page, int size)
@@ -211,6 +287,42 @@ namespace CreditService.Services
 
             var query = _context.Credits.AsNoTracking();
             return await BuildCreditsResponse(query, page, size);
+        }
+
+        public async Task<DelinquenciesResponse> GetMyDelinquencies(int page, int size)
+        {
+            ValidatePagination(page, size);
+            var currentUser = await GetCurrentUserAsync();
+
+            var query = _context.Credits
+                .AsNoTracking()
+                .Where(x => x.userId == currentUser.Id && (x.status == StatusCredit.OVERDUE || x.status == StatusCredit.DEFAULTED));
+
+            return await BuildDelinquenciesResponse(query, page, size);
+        }
+
+        public async Task<DelinquenciesResponse> GetAllDelinquencies(int page, int size)
+        {
+            ValidatePagination(page, size);
+            await EnsureCurrentUserHasBackofficeRoleAsync();
+
+            var query = _context.Credits
+                .AsNoTracking()
+                .Where(x => x.status == StatusCredit.OVERDUE || x.status == StatusCredit.DEFAULTED);
+
+            return await BuildDelinquenciesResponse(query, page, size);
+        }
+
+        public async Task<CreditRatingResponse> GetMyCreditRating()
+        {
+            var currentUser = await GetCurrentUserAsync();
+            return await BuildCreditRatingAsync(currentUser.Id);
+        }
+
+        public async Task<CreditRatingResponse> GetCreditRatingByUser(Guid userId)
+        {
+            await EnsureCurrentUserHasBackofficeRoleAsync();
+            return await BuildCreditRatingAsync(userId);
         }
 
         public async Task<CreditTariff> CreateNewTariff(CreateCreditTarrifRequest request)
@@ -294,6 +406,75 @@ namespace CreditService.Services
             };
 
             return creditTariffResponse;
+        }
+
+        private async Task<DelinquenciesResponse> BuildDelinquenciesResponse(IQueryable<Credit> query, int page, int size)
+        {
+            var totalElements = await query.CountAsync();
+            var credits = await query
+                .OrderByDescending(x => x.endDate)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync();
+
+            var content = credits
+                .Select(x => new DelinquencyResponse
+                {
+                    CreditId = x.Id,
+                    UserId = x.userId,
+                    AccountId = x.accountId,
+                    DueDate = x.endDate,
+                    RemainingAmount = x.remainingAmount,
+                    DaysOverdue = Math.Max(0, (int)Math.Floor((DateTimeOffset.UtcNow - x.endDate).TotalDays)),
+                    Status = x.status
+                })
+                .ToArray();
+
+            return new DelinquenciesResponse
+            {
+                Content = content,
+                Page = new PageInfo
+                {
+                    page = page,
+                    size = size,
+                    totalElements = totalElements,
+                    totalPages = (int)Math.Ceiling(totalElements / (double)size)
+                }
+            };
+        }
+
+        private async Task<CreditRatingResponse> BuildCreditRatingAsync(Guid userId)
+        {
+            var credits = await _context.Credits
+                .AsNoTracking()
+                .Where(x => x.userId == userId)
+                .ToListAsync();
+
+            var total = credits.Count;
+            var paid = credits.Count(x => x.status == StatusCredit.PAID);
+            var active = credits.Count(x => x.status == StatusCredit.ACTIVE);
+            var overdue = credits.Count(x => x.status == StatusCredit.OVERDUE);
+            var defaulted = credits.Count(x => x.status == StatusCredit.DEFAULTED);
+
+            var probability = 0.5d;
+            if (total > 0)
+            {
+                probability = (paid + 0.5d * active + 0.25d * overdue) / total;
+            }
+
+            probability -= defaulted * 0.1d;
+            probability = Math.Max(0.01d, Math.Min(0.99d, probability));
+
+            return new CreditRatingResponse
+            {
+                UserId = userId,
+                RepaymentProbability = Math.Round(probability, 4, MidpointRounding.AwayFromZero),
+                ActiveCredits = active,
+                PaidCredits = paid,
+                OverdueCredits = overdue,
+                DefaultedCredits = defaulted,
+                CalculatedAt = DateTimeOffset.UtcNow
+            };
         }
 
         private void ValidatePagination(int page, int size)

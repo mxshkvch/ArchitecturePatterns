@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:60882/api";
+const API_BASE = "http://89.23.105.66:5001/api";
 
 export type LoginRequest = {
   email: string;

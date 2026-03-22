@@ -1,4 +1,5 @@
 import { Modal, Button, Form } from "react-bootstrap";
+import { useTheme } from "../../shared/lib/provider/themeProvider"
 
 type PayCreditModalProps = {
   show: boolean;
@@ -11,16 +12,16 @@ type PayCreditModalProps = {
 
 export const PayCreditModal = ({ show, onClose, amount, setAmount, onSubmit, maxAmount }: PayCreditModalProps) => {
   const numericAmount = Number(amount);
-  const isInvalid =
-    amount !== "" && (isNaN(numericAmount) || numericAmount <= 0 || (maxAmount !== undefined && numericAmount > maxAmount));
+  const isInvalid = amount !== "" && (isNaN(numericAmount) || numericAmount <= 0 || (maxAmount !== undefined && numericAmount > maxAmount));
+  const { theme } = useTheme();
 
   return (
     <Modal show={show} onHide={onClose} centered>
-      <Modal.Header closeButton>
+      <Modal.Header closeButton className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Modal.Title>Погашение кредита</Modal.Title>
       </Modal.Header>
 
-      <Modal.Body>
+      <Modal.Body className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Form>
           <Form.Group>
             <Form.Label>Сумма</Form.Label>
@@ -32,9 +33,10 @@ export const PayCreditModal = ({ show, onClose, amount, setAmount, onSubmit, max
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Введите сумму"
               isInvalid={isInvalid}
+              className={theme === "DARK" ? "bg-secondary text-light border-light dark-placeholder" : ""}
             />
             {maxAmount && (
-              <Form.Text className="text-muted">
+              <Form.Text className={theme === "DARK" ? "text-light" : "text-muted"}>
                 Максимально доступно: {maxAmount.toLocaleString()}
               </Form.Text>
             )}
@@ -45,7 +47,7 @@ export const PayCreditModal = ({ show, onClose, amount, setAmount, onSubmit, max
         </Form>
       </Modal.Body>
 
-      <Modal.Footer>
+      <Modal.Footer className={theme === "DARK" ? "bg-dark text-light" : ""}>
         <Button variant="secondary" onClick={onClose}>Отмена</Button>
         <Button variant="success" disabled={amount === "" || isInvalid} onClick={onSubmit}>Оплатить</Button>
       </Modal.Footer>
