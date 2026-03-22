@@ -1,83 +1,153 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { login } from '../services/api';
+// staff-service/src/components/Login.jsx
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { isAuthenticated, initializeAuth } from '../services/api';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState({});
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    try {
-      const response = await login(email, password);
-      
-      // Сохраняем токен (предполагаем, что response содержит token)
-      if (response.token) {
-        localStorage.setItem('token', response.token);
-      }
-      
-      // Сохраняем данные пользователя
-      if (response.user) {
-        localStorage.setItem('user', JSON.stringify(response.user));
-      }
-      
-      // Перенаправляем на главную страницу
-      navigate('/users');
-    } catch (err) {
-      setError('Неверный email или пароль');
-      console.error('Ошибка входа:', err);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    console.log('========================================');
+    console.log('🔧 LOGIN COMPONENT MOUNTED');
+    console.log('========================================');
+    
+    // 1. Логируем информацию о странице
+    console.log('📍 Current URL:', window.location.href);
+    console.log('📍 Current pathname:', window.location.pathname);
+    console.log('📍 Current search params:', window.location.search);
+    console.log('📍 Location from React Router:', location);
+    
+    // 2. Парсим URL параметры
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    const roleFromUrl = urlParams.get('role');
+    
+    console.log('\n🔍 URL PARAMETERS:');
+    console.log('  - token parameter present:', !!tokenFromUrl);
+    console.log('  - token value (first 50 chars):', tokenFromUrl ? tokenFromUrl.substring(0, 50) + '...' : 'null');
+    console.log('  - role parameter:', roleFromUrl);
+    console.log('  - all parameters:', Array.from(urlParams.entries()));
+    
+    // 3. Логируем текущий localStorage
+    console.log('\n💾 LOCALSTORAGE BEFORE INIT:');
+    console.log('  - access_token:', localStorage.getItem('access_token') ? 'present' : 'missing');
+    console.log('  - user_role:', localStorage.getItem('user_role'));
+    console.log('  - user_email:', localStorage.getItem('user_email'));
+    
+    // 4. Вызываем initializeAuth
+    console.log('\n🚀 CALLING initializeAuth()...');
+    const hasToken = initializeAuth();
+    console.log('  - initializeAuth returned:', hasToken);
+    
+    // 5. Логируем localStorage после initializeAuth
+    console.log('\n💾 LOCALSTORAGE AFTER INIT:');
+    console.log('  - access_token:', localStorage.getItem('access_token') ? 'present' : 'missing');
+    if (localStorage.getItem('access_token')) {
+      console.log('    value (first 50 chars):', localStorage.getItem('access_token').substring(0, 50) + '...');
     }
-  };
+    console.log('  - user_role:', localStorage.getItem('user_role'));
+    console.log('  - user_email:', localStorage.getItem('user_email'));
+    
+    // 6. Проверяем аутентификацию
+    console.log('\n🔐 CALLING isAuthenticated()...');
+    const authenticated = isAuthenticated();
+    console.log('  - isAuthenticated returned:', authenticated);
+    
+    // 7. Сохраняем отладочную информацию
+    setDebugInfo({
+      url: window.location.href,
+      pathname: location.pathname,
+      tokenInUrl: !!tokenFromUrl,
+      tokenValue: tokenFromUrl ? tokenFromUrl.substring(0, 100) + '...' : null,
+      roleInUrl: roleFromUrl,
+      tokenSaved: !!localStorage.getItem('access_token'),
+      userRole: localStorage.getItem('user_role'),
+      userEmail: localStorage.getItem('user_email'),
+      isAuthenticated: authenticated,
+      hasToken: hasToken,
+      timestamp: new Date().toISOString()
+    });
+    
+    // 8. Принимаем решение
+    console.log('\n🤔 DECISION MAKING:');
+    console.log('  - authenticated:', authenticated);
+    console.log('  - hasToken:', hasToken);
+    console.log('  - tokenFromUrl:', !!tokenFromUrl);
+    
+    if (authenticated) {
+      console.log('✅ User authenticated, redirecting to /users in 1 second...');
+      setTimeout(() => {
+        console.log('🔄 Executing redirect to /users');
+        navigate('/users', { replace: true });
+      }, 1000);
+    } else if (hasToken || tokenFromUrl) {
+      // Если есть токен но не аутентифицирован - возможно ошибка валидации
+      console.log('⚠️ Token found but authentication failed, redirecting to /users anyway');
+      setTimeout(() => {
+        navigate('/users', { replace: true });
+      }, 1000);
+    } else {
+      const errorMsg = 'No authentication token found. Redirecting to auth service login...';
+      console.log('❌', errorMsg);
+      setError(errorMsg);
+      console.log('🔄 Will redirect to http://localhost:5175/login in 3 seconds...');
+      setTimeout(() => {
+        console.log('🔄 Executing redirect to auth service');
+        window.location.href = 'http://localhost:5175/login';
+      }, 3000);
+    }
+    
+    setLoading(false);
+    console.log('\n========================================');
+    console.log('🔧 LOGIN COMPONENT FINISHED MOUNTING');
+    console.log('========================================\n');
+  }, [navigate, location]);
+
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <h2>🏦 Staff Service</h2>
+          <div className="spinner" style={styles.spinner}></div>
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
-      <div style={styles.loginBox}>
-        <h1 style={styles.title}>Вход в систему</h1>
-        <h2 style={styles.subtitle}>Банковская система</h2>
+      <div style={styles.card}>
+        <h2>🏦 Staff Service</h2>
         
-        {error && <div style={styles.error}>{error}</div>}
+        {error && (
+          <div style={styles.errorBox}>
+            <p style={styles.errorIcon}>⚠️</p>
+            <p style={styles.errorMessage}>{error}</p>
+          </div>
+        )}
         
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={styles.input}
-              required
-              placeholder="Введите email"
-            />
-          </div>
-          
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Пароль</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={styles.input}
-              required
-              placeholder="Введите пароль"
-            />
-          </div>
-          
-          <button 
-            type="submit" 
-            style={styles.button}
-            disabled={loading}
-          >
-            {loading ? 'Вход...' : 'Войти'}
-          </button>
-        </form>
+        <div style={styles.debugBox}>
+          <h3 style={styles.debugTitle}>🔍 Debug Information:</h3>
+          <pre style={styles.debugContent}>
+            {JSON.stringify(debugInfo, null, 2)}
+          </pre>
+        </div>
+        
+        {!error && (
+          <>
+            <div className="spinner" style={styles.spinner}></div>
+            <p>Authenticating...</p>
+          </>
+        )}
+        
+        {error && (
+          <p style={styles.redirectNote}>Redirecting to login page...</p>
+        )}
       </div>
     </div>
   );
@@ -89,88 +159,70 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    padding: '20px',
   },
-  loginBox: {
-    backgroundColor: 'white',
+  card: {
+    background: 'white',
     padding: '40px',
     borderRadius: '16px',
-    marginLeft: '1000px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-    width: '100%',
-    maxWidth: '500px',
-
-  },
-  title: {
-  margin: '0 0 8px 0',
-  color: '#1e293b',
-  fontSize: '2em',
-  fontWeight: '600',
-  textAlign: 'center'  
-},
-  subtitle: {
-    margin: '0 0 30px 0',
-    color: '#64748b',
-    fontSize: '1.1em',
     textAlign: 'center',
-    fontWeight: '400'
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+    maxWidth: '600px',
+    width: '90%',
   },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px'
+  spinner: {
+    width: '40px',
+    height: '40px',
+    margin: '20px auto',
+    border: '4px solid #f3f3f3',
+    borderTop: '4px solid #667eea',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
   },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px'
-  },
-  label: {
-    color: '#1e293b',
-    fontSize: '0.95em',
-    fontWeight: '500'
-  },
-  input: {
-    padding: '12px 16px',
-    border: '1px solid #e2e8f0',
+  errorBox: {
+    backgroundColor: '#f8d7da',
+    border: '1px solid #f5c6cb',
     borderRadius: '8px',
-    fontSize: '1em',
-    transition: 'border-color 0.2s',
-    outline: 'none',
-    ':focus': {
-      borderColor: '#3b82f6'
-    }
-  },
-  button: {
-    padding: '14px',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '1em',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-    marginTop: '10px',
-    ':hover': {
-      backgroundColor: '#2563eb'
-    },
-    ':disabled': {
-      backgroundColor: '#94a3b8',
-      cursor: 'not-allowed'
-    }
-  },
-  error: {
-    backgroundColor: '#fee2e2',
-    color: '#ef4444',
-    padding: '12px',
-    borderRadius: '8px',
+    padding: '15px',
     marginBottom: '20px',
-    textAlign: 'center',
-    fontSize: '0.95em'
-  }
+  },
+  errorIcon: {
+    fontSize: '24px',
+    margin: '0 0 10px 0',
+  },
+  errorMessage: {
+    color: '#721c24',
+    margin: '0',
+    fontWeight: 'bold',
+  },
+  debugBox: {
+    backgroundColor: '#f4f4f4',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    padding: '15px',
+    marginTop: '20px',
+    textAlign: 'left',
+  },
+  debugTitle: {
+    fontSize: '14px',
+    margin: '0 0 10px 0',
+    color: '#333',
+  },
+  debugContent: {
+    fontSize: '12px',
+    backgroundColor: '#fff',
+    padding: '10px',
+    borderRadius: '4px',
+    overflow: 'auto',
+    maxHeight: '200px',
+    margin: '0',
+  },
+  redirectNote: {
+    marginTop: '20px',
+    color: '#666',
+    fontSize: '12px',
+  },
 };
 
 export default Login;
