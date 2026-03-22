@@ -27,14 +27,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options => { options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); });
 builder.Services.AddSignalR();
-var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? new[] { "http://localhost:5173", "http://localhost:3000" };
-
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowClientApps", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins(allowedCorsOrigins)
+        policy
+            .SetIsOriginAllowed(_ => true)
+            .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
     });
@@ -123,7 +122,7 @@ builder.Services.AddSingleton<IConnection>(_ =>
 var app = builder.Build();
 
 app.UseRouting();
-app.UseCors("AllowClientApps");
+app.UseCors("AllowAll");
 
 app.UseExceptionHandler(errorApp =>
 {
@@ -215,7 +214,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<OperationsHub>("/hubs/operations");
-app.MapHub<OperationsHub>("/ws");
 
 Guid MASTER_ACCOUNT = Guid.Parse("99999999-9999-9999-9999-999999999999");
 
