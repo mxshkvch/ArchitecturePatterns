@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
-import { useTheme } from "../../shared/lib/provider/themeProvider"
+import { useTheme } from "../../shared/lib/provider/themeProvider";
+import { SpinnerComponent } from "../../shared/ui/components/spinner";
 
 type WithdrawModalProps = {
   show: boolean;
@@ -11,6 +13,23 @@ type WithdrawModalProps = {
 
 export const WithdrawModal = ({ show, onClose, amount, setAmount, onSubmit }: WithdrawModalProps) => {
   const { theme } = useTheme();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!amount || Number(amount) <= 0) return;
+    setIsLoading(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await Promise.resolve(onSubmit());
+      onClose();
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка при снятии средств");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Modal show={show} onHide={onClose} centered>
       <Modal.Header closeButton className={theme === "DARK" ? "bg-dark text-light" : ""}>
@@ -18,25 +37,35 @@ export const WithdrawModal = ({ show, onClose, amount, setAmount, onSubmit }: Wi
       </Modal.Header>
 
       <Modal.Body className={theme === "DARK" ? "bg-dark text-light" : ""}>
-        <Form>
-          <Form.Group>
-            <Form.Label>Сумма</Form.Label>
-            <Form.Control
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Введите сумму"
-              className={theme === "DARK" ? "bg-secondary text-light border-light dark-placeholder" : ""}
-            />
-          </Form.Group>
-        </Form>
+        {isLoading ? (
+          <SpinnerComponent theme={theme} />
+        ) : (
+          <Form>
+            <Form.Group>
+              <Form.Label>Сумма</Form.Label>
+              <Form.Control
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Введите сумму"
+                className={theme === "DARK" ? "bg-secondary text-light border-light dark-placeholder" : ""}
+              />
+            </Form.Group>
+          </Form>
+        )}
       </Modal.Body>
 
       <Modal.Footer className={theme === "DARK" ? "bg-dark text-light" : ""}>
-        <Button variant="secondary" onClick={onClose}>Отмена</Button>
-        <Button variant="warning" onClick={onSubmit} disabled={!amount || Number(amount) <= 0}>Снять</Button>
+        <Button variant="secondary" onClick={onClose} disabled={isLoading}>Отмена</Button>
+        <Button
+          variant="warning"
+          onClick={handleSubmit}
+          disabled={!amount || Number(amount) <= 0 || isLoading}
+        >
+          {isLoading ? "Снятие..." : "Снять"}
+        </Button>
       </Modal.Footer>
     </Modal>
   );

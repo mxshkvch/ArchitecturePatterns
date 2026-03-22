@@ -19,7 +19,7 @@ export interface Delinquency {
   dueDate: string;
   remainingAmount: number;
   daysOverdue: number;
-  status: string;
+  status: "ACTIVE" | "PAID" | "OVERDUE" | "DEFAULTED";
 }
 
 export interface DelinquenciesResponse {
@@ -33,23 +33,31 @@ export interface DelinquenciesResponse {
 }
 
 
-const getAuthHeader = () => {
+
+const getAuthHeaders = (): { Authorization: string } => {
   const token = localStorage.getItem("accessToken");
+  if (!token) throw new Error("Access token is missing");
   return { Authorization: `Bearer ${token}` };
 };
 
-export const fetchMyCreditRating = async () => {
-  const res = await axios.get(`${API_URL}/credits/rating/my`, {
-    headers: getAuthHeader(),
+
+
+export const fetchMyCreditRating = async (): Promise<CreditRating> => {
+  const res = await axios.get<CreditRating>(`${API_URL}/credits/rating/my`, {
+    headers: getAuthHeaders(),
   });
   return res.data;
 };
 
-export const fetchDelinquencies = async (page: number, size: number) => {
-  const res = await axios.get(
-    `${API_URL}/credits/delinquencies/my?page=${page}&size=${size}`,
+export const fetchDelinquencies = async (
+  page: number,
+  size: number
+): Promise<DelinquenciesResponse> => {
+  const res = await axios.get<DelinquenciesResponse>(
+    `${API_URL}/credits/delinquencies/my`,
     {
-      headers: getAuthHeader(),
+      params: { page, size },
+      headers: getAuthHeaders(),
     }
   );
   return res.data;

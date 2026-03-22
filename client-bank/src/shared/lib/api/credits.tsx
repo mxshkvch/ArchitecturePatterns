@@ -1,6 +1,8 @@
 import axios from "axios";
 
-export type Credit = {
+export type CreditStatus = "ACTIVE" | "PAID" | "OVERDUE" | "DEFAULTED";
+
+export interface Credit {
   id: string;
   userId: string;
   accountId: string;
@@ -10,10 +12,10 @@ export type Credit = {
   interestRate: number;
   startDate: string;
   endDate: string;
-  status: "ACTIVE" | "PAID" | "OVERDUE" | "DEFAULTED";
-};
+  status: CreditStatus;
+}
 
-export type CreditsResponse = {
+export interface CreditsResponse {
   content: Credit[];
   page: {
     page: number;
@@ -21,11 +23,9 @@ export type CreditsResponse = {
     totalElements: number;
     totalPages: number;
   };
-};
+}
 
-export type TariffStatus = "ACTIVE" | "PAID" | "OVERDUE" | "DEFAULTED";
-
-export type Tariff = {
+export interface Tariff {
   id: string;
   name: string;
   interestRate: number;
@@ -33,17 +33,61 @@ export type Tariff = {
   maxAmount: number;
   minTerm: number;
   maxTerm: number;
-  status: TariffStatus;
-};
+  status: CreditStatus;
+}
+
+export interface TariffsResponse {
+  content: Tariff[];
+  page: {
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+  };
+}
+
+export interface ApplyCreditRequest {
+  tariffId: string;
+  accountId: string;
+  amount: number;
+  term: number;
+}
+
+export interface ApplyCreditResponse {
+  id: string;
+  userId: string;
+  accountId: string;
+  tariffId: string;
+  principal: number;
+  remainingAmount: number;
+  interestRate: number;
+  startDate: string;
+  endDate: string;
+  status: CreditStatus;
+}
+
+export interface PayCreditRequest {
+  amount: number;
+}
+
+export interface PayCreditResponse {
+  success: boolean;
+  updatedCredit: Credit;
+}
+
+
 
 const API_BASE = "http://89.23.105.66:5107";
 
-const getAuthHeaders = () => {
+const getAuthHeaders = (): { Authorization: string } => {
   const token = localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  if (!token) throw new Error("Access token is missing");
+  return { Authorization: `Bearer ${token}` };
 };
 
-export const fetchMyCredits = async (page: number, size: number): Promise<CreditsResponse> => {
+
+
+export const fetchMyCredits = async ( page: number, size: number ): Promise<CreditsResponse> => {
   const res = await axios.get<CreditsResponse>(`${API_BASE}/credits/my`, {
     params: { page, size },
     headers: getAuthHeaders(),
@@ -51,26 +95,28 @@ export const fetchMyCredits = async (page: number, size: number): Promise<Credit
   return res.data;
 };
 
-export const payCredit = async (creditId: string, amount: number) => {
-  await axios.post(
+export const payCredit = async ( creditId: string, amount: number ): Promise<PayCreditResponse> => {
+  const res = await axios.post<PayCreditResponse>(
     `${API_BASE}/credits/${creditId}/pay`,
-    { amount },
+    { amount } as PayCreditRequest,
     { headers: getAuthHeaders() }
   );
+  return res.data;
 };
 
 export const fetchTariffs = async (page = 1, size = 10): Promise<Tariff[]> => {
-  const res = await axios.get(`${API_BASE}/credits/tariffs`, {
+  const res = await axios.get<TariffsResponse>(`${API_BASE}/credits/tariffs`, {
     params: { page, size },
     headers: getAuthHeaders(),
   });
   return res.data.content;
 };
 
-export const applyCredit = async (tariffId: string, accountId: string, amount: number, term: number) => {
-  const res = await axios.post(
+export const applyCredit = async (tariffId: string, accountId: string, amount: number, term: number): Promise<ApplyCreditResponse> => {
+  const req: ApplyCreditRequest = { tariffId, accountId, amount, term };
+  const res = await axios.post<ApplyCreditResponse>(
     `${API_BASE}/credits/apply`,
-    { tariffId, accountId, amount, term },
+    req,
     { headers: getAuthHeaders() }
   );
   return res.data;
