@@ -59,12 +59,16 @@ export const CreditsPage = () => {
   }, []);
 
   const handleApplyCredit = async (tariffId: string, accountId: string, amount: number, term: number) => {
-    try {
-      await applyCreditUseCase(tariffId, accountId, amount, term);
-      setShowApplyModal(false);
-      const data = await loadCreditsUseCase(currentPage + 1, pageSize);
-      setCredits(data.content);
-    } catch (err: unknown) {
+  try {
+    await applyCreditUseCase(tariffId, accountId, amount, term);
+    setShowApplyModal(false);
+    const data = await loadCreditsUseCase(currentPage + 1, pageSize);
+    setCredits(data.content);
+    setCreditsPage({
+      page: data.page.page,
+      totalPages: data.page.totalPages,
+    });
+  } catch (err: unknown) {
       if (err instanceof Error) {
         alert(err.message);
       } else {
