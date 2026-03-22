@@ -3,6 +3,7 @@ import { Modal, Button, Form, ListGroup, OverlayTrigger, Tooltip } from "react-b
 import type { Tariff } from "../../shared/lib/api/credits";
 import type { Account } from "../../shared/lib/api/accounts";
 import { useTheme } from "../../shared/lib/provider/themeProvider"
+import { SpinnerComponent } from "../../shared/ui/components/spinner";
 
 type ApplyCreditModalProps = {
   show: boolean;
@@ -80,7 +81,7 @@ export const ApplyCreditModal = ({show, onClose, onSubmit, tariffs, accounts, lo
       </Modal.Header>
 
       <Modal.Body className={theme === "DARK" ? "bg-dark text-light" : ""}>
-        {loading && <p>Загрузка тарифов...</p>}
+        {loading && <SpinnerComponent theme={theme} />}
         {error && <p className="text-danger">{error}</p>}
         {!loading && !error && tariffs.length === 0 && <p>Нет доступных тарифов</p>}
 
