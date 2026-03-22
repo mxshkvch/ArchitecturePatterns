@@ -136,9 +136,10 @@ const handleTransferScenario = async (fromId: string, toId: string, amount: numb
         setTargetForeignAccountId={setTargetAccountId}
         amount={transferAmount}
         setAmount={setTransferAmount}
-        onSubmit={(finalTargetId, amount) =>
-          selectedAccountId && handleTransferScenario(selectedAccountId, finalTargetId, amount)
-        }
+        onSubmit={async (finalTargetId, amount) => {
+          if (!selectedAccountId) return;
+          await handleTransferScenario(selectedAccountId, finalTargetId, amount);
+        }}
       />
 
       <Row className="mb-4">
