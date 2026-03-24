@@ -1,4 +1,3 @@
-// src/core/events/event-emitter.ts
 type EventListener = (...args: any[]) => void;
 
 export class EventEmitter {

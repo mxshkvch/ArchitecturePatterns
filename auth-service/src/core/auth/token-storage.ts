@@ -1,4 +1,3 @@
-// src/core/auth/token-storage.ts
 import { TokenResponseDto } from '../../types/dto/auth.dto';
 
 const TOKEN_KEY = 'auth_tokens';

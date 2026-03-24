@@ -40,7 +40,6 @@ export class AuthUseCases {
     console.log('🔐 Login attempt:', credentials);
     
     try {
-      // 1. Получаем authorization code
       console.log('📡 Step 1: Requesting authorization code...');
       const authResponse = await this.oauthRepository.authorize({
         clientId: config.clientId,
@@ -160,7 +159,6 @@ export class AuthUseCases {
       console.log('  - localStorage.getItem("user_role"):', localStorage.getItem('user_role'));
       console.log('  - localStorage.getItem("client_id"):', localStorage.getItem('client_id'));
       
-      // Возвращаем результат без редиректа для отладки
       return { 
         redirectTo, 
         accessToken: accessToken 

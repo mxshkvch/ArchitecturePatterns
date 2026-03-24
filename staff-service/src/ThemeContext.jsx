@@ -1,6 +1,6 @@
 // ThemeContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { getSettings, updateSettings } from './services/api';
+import { getSettings, updateSettings } from './services/api/index';
 
 const ThemeContext = createContext();
 

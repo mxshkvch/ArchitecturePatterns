@@ -1,4 +1,3 @@
-// src/repositories/oauth.repository.ts
 import { HttpClient } from '../core/network/http-client';
 
 export class OAuthRepository {
@@ -12,7 +11,6 @@ export class OAuthRepository {
   async authorize(data: any): Promise<any> {
     console.log('📤 Authorize called with:', data);
     const response = await this.httpClient.post('/connect/authorize', data);
-    // Возвращаем response.data напрямую, так как сервер возвращает объект с code, state, redirect_uri
     return response;
   }
 

@@ -1,4 +1,3 @@
-// src/contexts/AuthContext.tsx (исправленная версия с редиректом)
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import * as React from 'react';
 import { DIContainer } from '../core/di/container';
@@ -81,17 +80,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Role:', role);
     console.log('🔴 =========================\n');
     
-    // Убеждаемся, что URL корректен
     if (!urlWithToken || urlWithToken === 'undefined?token=undefined&role=undefined') {
       console.error('❌ Invalid redirect URL!');
       throw new Error('Invalid redirect URL');
     }
     
-    // Добавляем задержку и принудительный редирект
     console.log('⏳ Waiting 1 second before redirect...');
     setTimeout(() => {
       console.log('🚀 EXECUTING REDIRECT TO:', urlWithToken);
-      window.location.replace(urlWithToken); // Используем replace вместо href
+     window.location.replace(urlWithToken);
     }, 1000);
     
   } catch (err) {

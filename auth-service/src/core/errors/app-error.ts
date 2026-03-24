@@ -1,4 +1,3 @@
-// src/core/errors/app-error.ts
 export const ErrorCode = {
   NETWORK_ERROR: 'NETWORK_ERROR',
   TIMEOUT_ERROR: 'TIMEOUT_ERROR',

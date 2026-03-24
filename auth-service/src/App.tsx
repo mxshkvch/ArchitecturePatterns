@@ -1,4 +1,3 @@
-// src/App.tsx
 import * as React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthCotext';
@@ -8,10 +7,8 @@ import { NotificationContainer } from './components/ui/Notification/Notification
 import { initializeDI } from './core/di/container';
 import './App.css';
 
-// Initialize DI before rendering
 initializeDI();
 
-// Ленивая загрузка микрофронтендов
 
 
 const LoadingFallback: React.FC = () => (

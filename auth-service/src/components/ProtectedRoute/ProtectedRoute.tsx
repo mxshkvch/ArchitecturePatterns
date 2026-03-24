@@ -1,4 +1,3 @@
-// src/components/ProtectedRoute/ProtectedRoute.tsx
 import * as React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthCotext';
@@ -28,7 +27,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (allowedRoles.length > 0 && userRole && !allowedRoles.includes(userRole)) {
-    // Redirect to appropriate dashboard based on role
     const redirect = userRole === 'client' ? '/client' : '/staff';
     return <Navigate to={redirect} replace />;
   }

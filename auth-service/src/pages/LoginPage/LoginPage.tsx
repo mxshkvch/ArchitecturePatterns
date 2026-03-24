@@ -24,8 +24,8 @@ export const LoginPage: React.FC = () => {
     <div className="login-page">
       <div className="login-container">
         <div className="login-header">
-          <h1>Welcome</h1>
-          <p>Sign in to access your account</p>
+          <h1>Добро пожаловать в наш Банк</h1>
+          <p>Войдите в свой аккаунт</p>
         </div>
 
         <Form
@@ -60,7 +60,7 @@ export const LoginPage: React.FC = () => {
           </FormField>
 
           <div className="role-selector">
-            <label className="role-label">I am a:</label>
+            <label className="role-label">Я:</label>
             <div className="role-buttons">
               <button
                 type="button"
@@ -68,8 +68,8 @@ export const LoginPage: React.FC = () => {
                 onClick={() => setSelectedRole('client')}
               >
                 <span className="role-icon">👤</span>
-                <span className="role-name">Client</span>
-                <span className="role-desc">Banking Customer</span>
+                <span className="role-name">Клиент</span>
+                <span className="role-desc">Раб банка</span>
               </button>
               <button
                 type="button"
@@ -77,8 +77,8 @@ export const LoginPage: React.FC = () => {
                 onClick={() => setSelectedRole('staff')}
               >
                 <span className="role-icon">👔</span>
-                <span className="role-name">Staff</span>
-                <span className="role-desc">Bank Employee</span>
+                <span className="role-name">Сотрудник</span>
+                <span className="role-desc">Рабочий банка</span>
               </button>
             </div>
           </div>

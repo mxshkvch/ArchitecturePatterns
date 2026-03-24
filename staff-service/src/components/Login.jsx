@@ -1,9 +1,9 @@
-// staff-service/src/components/Login.jsx
+// staff-service/src/features/auth/pages/Login.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { isAuthenticated, initializeAuth } from '../services/api';
+import { isAuthenticated, initializeAuth } from '../../../services/api';
 
-const Login = () => {
+export const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
@@ -15,13 +15,11 @@ const Login = () => {
     console.log('🔧 LOGIN COMPONENT MOUNTED');
     console.log('========================================');
     
-    // 1. Логируем информацию о странице
     console.log('📍 Current URL:', window.location.href);
     console.log('📍 Current pathname:', window.location.pathname);
     console.log('📍 Current search params:', window.location.search);
     console.log('📍 Location from React Router:', location);
     
-    // 2. Парсим URL параметры
     const urlParams = new URLSearchParams(window.location.search);
     const tokenFromUrl = urlParams.get('token');
     const roleFromUrl = urlParams.get('role');
@@ -37,6 +35,8 @@ const Login = () => {
     console.log('  - access_token:', localStorage.getItem('access_token') ? 'present' : 'missing');
     console.log('  - user_role:', localStorage.getItem('user_role'));
     console.log('  - user_email:', localStorage.getItem('user_email'));
+    console.log('  - user_id:', localStorage.getItem('user_id'));
+    console.log('  - user:', localStorage.getItem('user'));
     
     // 4. Вызываем initializeAuth
     console.log('\n🚀 CALLING initializeAuth()...');
@@ -51,6 +51,8 @@ const Login = () => {
     }
     console.log('  - user_role:', localStorage.getItem('user_role'));
     console.log('  - user_email:', localStorage.getItem('user_email'));
+    console.log('  - user_id:', localStorage.getItem('user_id'));
+    console.log('  - user:', localStorage.getItem('user'));
     
     // 6. Проверяем аутентификацию
     console.log('\n🔐 CALLING isAuthenticated()...');
@@ -67,6 +69,7 @@ const Login = () => {
       tokenSaved: !!localStorage.getItem('access_token'),
       userRole: localStorage.getItem('user_role'),
       userEmail: localStorage.getItem('user_email'),
+      userId: localStorage.getItem('user_id'),
       isAuthenticated: authenticated,
       hasToken: hasToken,
       timestamp: new Date().toISOString()
@@ -77,6 +80,7 @@ const Login = () => {
     console.log('  - authenticated:', authenticated);
     console.log('  - hasToken:', hasToken);
     console.log('  - tokenFromUrl:', !!tokenFromUrl);
+    console.log('  - roleFromUrl:', roleFromUrl);
     
     if (authenticated) {
       console.log('✅ User authenticated, redirecting to /users in 1 second...');
@@ -111,9 +115,9 @@ const Login = () => {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <h2>🏦 Staff Service</h2>
+          <h2 style={styles.title}>🏦 Staff Service</h2>
           <div className="spinner" style={styles.spinner}></div>
-          <p>Checking authentication...</p>
+          <p style={styles.text}>Checking authentication...</p>
         </div>
       </div>
     );
@@ -122,7 +126,7 @@ const Login = () => {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2>🏦 Staff Service</h2>
+        <h2 style={styles.title}>🏦 Staff Service</h2>
         
         {error && (
           <div style={styles.errorBox}>
@@ -141,7 +145,7 @@ const Login = () => {
         {!error && (
           <>
             <div className="spinner" style={styles.spinner}></div>
-            <p>Authenticating...</p>
+            <p style={styles.text}>Authenticating...</p>
           </>
         )}
         
@@ -171,6 +175,11 @@ const styles = {
     maxWidth: '600px',
     width: '90%',
   },
+  title: {
+    margin: '0 0 20px 0',
+    color: '#333',
+    fontSize: '24px',
+  },
   spinner: {
     width: '40px',
     height: '40px',
@@ -179,6 +188,10 @@ const styles = {
     borderTop: '4px solid #667eea',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
+  },
+  text: {
+    color: '#666',
+    marginTop: '10px',
   },
   errorBox: {
     backgroundColor: '#f8d7da',
@@ -217,6 +230,7 @@ const styles = {
     overflow: 'auto',
     maxHeight: '200px',
     margin: '0',
+    fontFamily: 'monospace',
   },
   redirectNote: {
     marginTop: '20px',
@@ -224,5 +238,18 @@ const styles = {
     fontSize: '12px',
   },
 };
+
+// Добавляем анимацию
+if (!document.querySelector('#login-styles')) {
+  const style = document.createElement('style');
+  style.id = 'login-styles';
+  style.textContent = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 export default Login;
