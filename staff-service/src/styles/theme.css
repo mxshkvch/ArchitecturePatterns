@@ -1,6 +1,4 @@
-/* styles/theme.css */
 :root {
-  /* Светлая тема */
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
   --card-bg: #ffffff;
@@ -21,7 +19,6 @@
 }
 
 [data-theme="dark"] {
-  /* Темная тема */
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --card-bg: #1e293b;

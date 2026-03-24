@@ -4,8 +4,8 @@ import { creditService } from './credit/creditService';
 import { coreService } from './core/coreService';
 import { settingsService } from './settings/settingsService';
 import { tokenManager } from './auth/tokenManager';
-import { userApiClient, creditApiClient, coreApiClient, settingsApiClient } from './config/axiosConfig';
 import { ENDPOINTS } from './config/endpoints';
+export { userApiClient, creditApiClient, coreApiClient, settingsApiClient, authApiClient } from './config/axiosConfig';
 
 export {
   authService,
@@ -36,5 +36,4 @@ export const getMasterAccount = () => coreService.getMasterAccount();
 export const getSettings = (applicationType) => settingsService.getSettings(applicationType);
 export const updateSettings = (settings) => settingsService.updateSettings(settings);
 
-export { userApiClient, creditApiClient, coreApiClient, settingsApiClient };
 export { ENDPOINTS };

@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage/LoginPage';
 import { NotificationContainer } from './components/ui/Notification/Notification';
 import { initializeDI } from './core/di/container';
+import { RegisterPage } from './pages/RegisterPage/RegisterPage';
 import './App.css';
 
 initializeDI();
@@ -28,13 +29,14 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      
+      <Route path="/register" element={<RegisterPage />} />
+
       <Route element={<ProtectedRoute allowedRoles={['client']} />}>
         <Route
           path="/client/*"
           element={
             <React.Suspense fallback={<LoadingFallback />}>
-              {/* <ClientApp /> */}
+              {}
             </React.Suspense>
           }
         />

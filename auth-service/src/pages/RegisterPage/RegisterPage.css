@@ -1,0 +1,579 @@
+
+.register-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.register-page::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: moveBackground 20s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes moveBackground {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(40px, 40px);
+  }
+}
+
+.register-container {
+  background: white;
+  border-radius: 24px;
+  padding: 48px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.5s ease;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.register-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.register-header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #10183c 0%, #1b171f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 12px;
+}
+
+.register-header p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Выбор роли */
+.role-selector {
+  margin: 28px 0;
+}
+
+.role-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.role-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.role-btn {
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.role-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(102, 126, 234, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.role-btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.role-btn:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.role-btn.active {
+  border-color: #000000;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.role-icon {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.role-name {
+  display: block;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+.role-desc {
+  display: block;
+  font-size: 11px;
+  color: #999;
+}
+
+/* Форма в два столбца */
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.form-row .form-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Стили для полей формы */
+.form-field {
+  margin-bottom: 24px;
+}
+
+.form-field input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: #1c1e26;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-field input.error {
+  border-color: #dc3545;
+}
+
+.form-field input.error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.required-mark {
+  color: #dc3545;
+  margin-left: 4px;
+}
+
+.form-error {
+  display: block;
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* Сообщения об ошибках и успехе */
+.error-message {
+  background: linear-gradient(135deg, #fff5f5 0%, #fee 100%);
+  border-left: 4px solid #dc3545;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 20px 0;
+  color: #dc3545;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: shake 0.5s ease;
+}
+
+.success-message {
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-left: 4px solid #28a745;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 20px 0;
+  color: #28a745;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.success-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* Кнопка регистрации */
+.register-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #10183c 0%, #1b171f 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.register-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.register-btn:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+.register-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.register-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+/* Спиннер загрузки */
+.btn-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Ссылка на вход */
+.login-link {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #040406;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  width: 100%;
+  padding: 8px;
+}
+
+.link-btn:hover {
+  color: #251414;
+  text-decoration: underline;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 640px) {
+  .register-container {
+    padding: 32px 24px;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .form-row .form-field {
+    margin-bottom: 24px;
+  }
+  
+  .role-buttons {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .register-header h1 {
+    font-size: 28px;
+  }
+  
+  .register-header p {
+    font-size: 13px;
+  }
+  
+  .role-btn {
+    padding: 12px;
+  }
+  
+  .role-icon {
+    font-size: 24px;
+  }
+}
+
+/* Для планшетов */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .register-container {
+    max-width: 550px;
+    padding: 40px;
+  }
+}
+
+/* Анимация для полей ввода */
+.form-field input {
+  animation: fadeInInput 0.3s ease;
+}
+
+@keyframes fadeInInput {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Эффект свечения для активных элементов */
+.role-btn.active {
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+/* Кастомный скроллбар */
+.register-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.register-container::-webkit-scrollbar-track {
+  background: #3b3131;
+  border-radius: 4px;
+}
+
+.register-container::-webkit-scrollbar-thumb {
+  background: #0b0c10;
+  border-radius: 4px;
+}
+
+.register-container::-webkit-scrollbar-thumb:hover {
+  background: #1e1823;
+}
+
+/* 
+import * as React from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthCotext';
+import { Button } from '../../components/ui/Button/Button';
+import { Form, FormField } from '../../components/ui/Form/Form';
+import './LoginPage.css';
+
+export const LoginPage: React.FC = () => {
+  const { login, loading, error: authError } = useAuth();
+  const navigate = useNavigate();
+  const [selectedRole, setSelectedRole] = useState<'client' | 'staff'>('client');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const handleSubmit = async (data: Record<string, any>) => {
+    try {
+      setFormError(null);
+      await login(data.email, data.password, selectedRole);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Login failed');
+    }
+  };
+
+  const handleRegisterClick = () => {
+    console.log('📝 Navigating to registration page');
+    navigate('/register');
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-container">
+        <div className="login-header">
+          <h1>Добро пожаловать в наш Банк</h1>
+          <p>Войдите в свой аккаунт</p>
+        </div>
+
+        <Form
+          onSubmit={handleSubmit}
+          validationSchema={{
+            email: (value: string) => {
+              if (!value) return 'Email обязателен';
+              if (!/\S+@\S+\.\S+/.test(value)) return 'Некорректный email';
+              return undefined;
+            },
+            password: (value: string) => {
+              if (!value) return 'Пароль обязателен';
+              if (value.length < 6) return 'Пароль должен содержать минимум 6 символов';
+              return undefined;
+            },
+          }}
+        >
+          <FormField name="email" label="Email" required>
+            <input
+              type="email"
+              placeholder="Введите ваш email"
+              autoComplete="email"
+            />
+          </FormField>
+
+          <FormField name="password" label="Пароль" required>
+            <input
+              type="password"
+              placeholder="Введите ваш пароль"
+              autoComplete="current-password"
+            />
+          </FormField>
+
+          <div className="role-selector">
+            <label className="role-label">Я:</label>
+            <div className="role-buttons">
+              <button
+                type="button"
+                className={`role-btn ${selectedRole === 'client' ? 'active' : ''}`}
+                onClick={() => setSelectedRole('client')}
+              >
+                <span className="role-icon">👤</span>
+                <span className="role-name">Клиент</span>
+                <span className="role-desc">Доступ к счетам и кредитам</span>
+              </button>
+              <button
+                type="button"
+                className={`role-btn ${selectedRole === 'staff' ? 'active' : ''}`}
+                onClick={() => setSelectedRole('staff')}
+              >
+                <span className="role-icon">👔</span>
+                <span className="role-name">Сотрудник</span>
+                <span className="role-desc">Администрирование системы</span>
+              </button>
+            </div>
+          </div>
+
+          {(formError || authError) && (
+            <div className="error-message">
+              <span className="error-icon">⚠️</span>
+              {formError || authError}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            loading={loading}
+            className="login-btn"
+          >
+            {loading ? 'Вход...' : 'Войти'}
+          </Button>
+
+          <div className="register-link">
+            <button
+              type="button"
+              className="link-btn"
+              onClick={handleRegisterClick}
+            >
+              Нет аккаунта? Зарегистрироваться
+            </button>
+          </div>
+        </Form>
+      </div>
+    </div>
+  );
+}; */

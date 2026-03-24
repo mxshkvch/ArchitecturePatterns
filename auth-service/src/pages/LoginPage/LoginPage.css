@@ -54,7 +54,6 @@
   }
 }
 
-/* Заголовок */
 .login-header {
   text-align: center;
   margin-bottom: 40px;
@@ -63,7 +62,7 @@
 .login-header h1 {
   font-size: 36px;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #10183c 0%, #1b171f 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -76,7 +75,6 @@
   line-height: 1.5;
 }
 
-/* Селектор роли */
 .role-selector {
   margin: 28px 0;
 }
@@ -132,7 +130,7 @@
 }
 
 .role-btn.active {
-  border-color: #667eea;
+  border-color: #000000;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
@@ -157,7 +155,6 @@
   color: #999;
 }
 
-/* Сообщение об ошибке */
 .error-message {
   background: linear-gradient(135deg, #fff5f5 0%, #fee 100%);
   border-left: 4px solid #dc3545;
@@ -251,7 +248,7 @@
 
 .form-field input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #1c1e26;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
@@ -283,7 +280,6 @@
   margin-top: 6px;
 }
 
-/* Адаптивность для мобильных устройств */
 @media (max-width: 640px) {
   .login-container {
     padding: 32px 24px;
@@ -339,7 +335,6 @@
   }
 }
 
-/* Эффект загрузки для кнопки */
 .btn-loading {
   position: relative;
   cursor: wait;
@@ -368,31 +363,53 @@
 }
 
 .login-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #3b3131;
   border-radius: 4px;
 }
 
 .login-container::-webkit-scrollbar-thumb {
-  background: #667eea;
+  background: #0b0c10;
   border-radius: 4px;
 }
 
 .login-container::-webkit-scrollbar-thumb:hover {
-  background: #764ba2;
+  background: #1e1823;
 }
 
 /* Эффект свечения для активных элементов */
 .role-btn.active {
   box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
 }
+.register-link {
+  text-align: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
 
-/* Стили для ссылок */
+.link-btn {
+  background: none;
+  border: none;
+  color: #040406;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  width: 100%;
+  padding: 8px;
+}
+
+.link-btn:hover {
+  color: #251414;
+  text-decoration: underline;
+}
 a {
   text-decoration: none;
-  color: #667eea;
+  color: #080a11;
   transition: color 0.3s ease;
 }
 
 a:hover {
-  color: #764ba2;
+  color: #000000;
 }

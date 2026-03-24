@@ -1,4 +1,3 @@
-// entities/credit/ui/CreditCard.jsx
 import React from 'react';
 import { useTheme } from '../../../ThemeContext';
 import { 

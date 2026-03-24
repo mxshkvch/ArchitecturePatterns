@@ -1,4 +1,3 @@
-// entities/account/ui/AccountCard.jsx
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../../ThemeContext';

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTransactions } from '../hooks/useTransactions';
+import { useTransactionsList } from '../hooks/useTransactions';
+import { useAccountWebSocket } from '../../../shared/hooks/useWebSocket';
 import { TransactionCard } from '../../../entities/transaction/ui/TransactionCard';
 import { TransactionFilters } from '../ui/TransactionFilters';
 import { TransactionDetailsModal } from '../ui/TransactionDetailsModal';
@@ -17,6 +18,9 @@ export const AccountTransactions = () => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
+  useAccountWebSocket(accountId);
+
+  
   const {
     transactions,
     loading,
@@ -28,7 +32,7 @@ export const AccountTransactions = () => {
     resetFilters,
     refetch,
     isEmpty
-  } = useTransactions(accountId, 10);
+  } = useTransactionsList(accountId, 10);
 
   const handleTransactionClick = (transaction) => {
     setSelectedTransaction(transaction);
@@ -62,10 +66,7 @@ export const AccountTransactions = () => {
         backgroundColor: 'var(--card-bg)',
         boxShadow: 'var(--shadow)'
       }}>
-        <button 
-          onClick={handleBackToAccounts} 
-          style={styles.backButton}
-        >
+        <button onClick={handleBackToAccounts} style={styles.backButton}>
           ← Назад к счетам
         </button>
         
@@ -87,7 +88,7 @@ export const AccountTransactions = () => {
         </div>
       </div>
 
-    
+      
 
       {!isEmpty && (
         <div style={{
@@ -99,6 +100,9 @@ export const AccountTransactions = () => {
           Найдено операций: <strong style={{ color: 'var(--text-color)' }}>
             {pageInfo.totalElements}
           </strong>
+          <span style={{ marginLeft: '10px', fontSize: '0.85em' }}>
+            (обновляется в реальном времени)
+          </span>
         </div>
       )}
 
@@ -196,3 +200,5 @@ const styles = {
     marginBottom: '30px'
   }
 };
+
+export default AccountTransactions;

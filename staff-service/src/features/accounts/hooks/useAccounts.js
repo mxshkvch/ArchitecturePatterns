@@ -1,4 +1,3 @@
-// features/accounts/hooks/useAccounts.js
 import { useState, useEffect } from 'react';
 import { useAccountsQuery } from '../../../entities/account/api/accountApi';
 
@@ -7,7 +6,6 @@ export const useAccounts = (userId, initialSize = 20) => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [size] = useState(initialSize);
   
-  // Используем React Query хук
   const { 
     data, 
     isLoading, 
@@ -16,7 +14,6 @@ export const useAccounts = (userId, initialSize = 20) => {
     isFetching 
   } = useAccountsQuery(userId, page, size, selectedStatus);
   
-  // Сбрасываем страницу при изменении статуса
   useEffect(() => {
     setPage(0);
   }, [selectedStatus]);
@@ -29,9 +26,8 @@ export const useAccounts = (userId, initialSize = 20) => {
     setPage(newPage);
   };
   
-  // Формируем информацию о пагинации
   const pageInfo = data?.page ? {
-    page: data.page.page - 1, // конвертируем в 0-индексацию для UI
+    page: data.page.page - 1, 
     size: data.page.size,
     totalElements: data.page.totalElements,
     totalPages: data.page.totalPages,

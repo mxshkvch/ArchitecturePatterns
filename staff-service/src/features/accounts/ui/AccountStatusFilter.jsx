@@ -1,4 +1,3 @@
-// features/accounts/ui/AccountStatusFilter.jsx
 import React from 'react';
 import { useTheme } from '../../../ThemeContext';
 

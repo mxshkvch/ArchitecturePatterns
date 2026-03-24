@@ -1,8 +1,6 @@
-// features/transactions/hooks/useTransactions.js
 import { useState, useEffect } from 'react';
 import { useTransactionsQuery } from '../../../entities/account/api/accountApi';
 
-// Переименовываем экспортируемую функцию
 export const useTransactionsList = (accountId, initialSize = 10) => {
   const [page, setPage] = useState(0);
   const [size] = useState(initialSize);
@@ -71,5 +69,4 @@ export const useTransactionsList = (accountId, initialSize = 10) => {
   };
 };
 
-// Добавляем экспорт для обратной совместимости
 export const useTransactions = useTransactionsList;

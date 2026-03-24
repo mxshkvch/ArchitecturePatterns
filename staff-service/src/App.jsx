@@ -1,5 +1,4 @@
-// App.jsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -10,7 +9,6 @@ import { ErrorBoundary } from './shared/components/ErrorBoundary';
 import { LoadingScreen } from './shared/ui/LoadingScreen';
 import { NotFound } from './shared/ui/NotFound';
 
-// Pages
 import Login from './features/auth/pages/Login';
 import { UserList } from './features/users/list/UserList';
 import { CreditsList } from './features/credits/list/CreditsList';
@@ -18,6 +16,8 @@ import { MasterAccount } from './features/accounts/pages/MasterAccount';
 import { UserAccounts } from './features/accounts/list/UserAccounts';
 import { AccountTransactions } from './features/transactions/pages/AccountTransactions';
 import { SettingsPage } from './features/settings/pages/SettingsPage';
+
+import { useGlobalWebSocket } from './shared/hooks/useWebSocket';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +45,11 @@ const ProtectedRouteWithLayout = ({ children }) => {
   );
 };
 
+const WebSocketInitializer = () => {
+  useGlobalWebSocket();
+  return null;
+};
+
 function App() {
   const [isAppLoading, setIsAppLoading] = React.useState(false);
 
@@ -69,19 +74,16 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <BrowserRouter>
+            <WebSocketInitializer />
+            
             <Routes>
-              {/* Публичный маршрут для логина - обрабатывает токен */}
+              {/* Корневой путь - обрабатывает токен из URL */}
+              <Route path="/" element={<Login />} />
+              
+              {/* Страница логина - тоже обрабатывает токен */}
               <Route path="/login" element={<Login />} />
               
-              {/* Корневой маршрут - проверяем токен в URL */}
-              <Route 
-                path="/" 
-                element={
-                  <Login />
-                } 
-              />
-              
-              {/* Защищенные маршруты с Layout */}
+              {/* Защищенные маршруты */}
               <Route
                 path="/users"
                 element={
@@ -136,7 +138,6 @@ function App() {
                 }
               />
               
-              {/* 404 - Not Found */}
               <Route
                 path="*"
                 element={

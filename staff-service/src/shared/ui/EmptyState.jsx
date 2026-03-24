@@ -1,4 +1,3 @@
-// shared/ui/EmptyState.jsx
 import React from 'react';
 
 export const EmptyState = ({ 

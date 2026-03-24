@@ -1,6 +1,6 @@
 import { userApiClient } from '../config/axiosConfig';
 import { ENDPOINTS } from '../config/endpoints';
-
+import { authApiClient } from '../config/axiosConfig';
 class UserService {
 
     async getUsers(page = 0, size = 5, role = null) {
@@ -39,10 +39,18 @@ class UserService {
   
   async createUser(userData) {
     try {
-      const response = await userApiClient.post(ENDPOINTS.USER.CREATE, userData);
+      console.log('📡 [AuthService] Creating user:', userData);
+      console.log('📡 [AuthService] URL:', `${ENDPOINTS.AUTH_SERVICE}${ENDPOINTS.AUTH.CREATE_USER}`);
+      
+      const response = await authApiClient.post(ENDPOINTS.AUTH.CREATE_USER, userData);
+      console.log('✅ [AuthService] User created:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ [UserService] Error creating user:', error);
+      console.error('❌ [AuthService] Error creating user:', {
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data
+      });
       throw error;
     }
   }
@@ -52,7 +60,6 @@ class UserService {
       const response = await userApiClient.patch(ENDPOINTS.USER.UPDATE_STATUS(userId), { status });
       return response.data;
     } catch (error) {
-      console.error('❌ [UserService] Error updating user status:', error);
       throw error;
     }
   }

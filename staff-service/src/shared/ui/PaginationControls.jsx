@@ -1,10 +1,8 @@
-// shared/ui/PaginationControls.jsx
 import React from 'react';
 
 export const PaginationControls = ({ pageInfo, onPageChange, showInfo = true }) => {
   const { page, totalPages } = pageInfo;
   
-  // page должен быть в 0-индексации
   const isFirstPage = page === 0;
   const isLastPage = page === totalPages - 1;
 

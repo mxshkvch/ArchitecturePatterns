@@ -1,4 +1,3 @@
-// shared/ui/DateFilter.jsx
 import React, { useState } from 'react';
 import { useTheme } from '../../ThemeContext';
 

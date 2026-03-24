@@ -1,4 +1,3 @@
-// src/components/WebSocketStatus/WebSocketStatus.tsx
 import * as React from 'react';
 import { useWebSocket } from '../../hooks/useWebSocket';
 

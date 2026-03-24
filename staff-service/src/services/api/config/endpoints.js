@@ -3,17 +3,19 @@ export const ENDPOINTS = {
   CORE_SERVICE: 'http://89.23.105.66:5000',
   CREDIT_SERVICE: 'http://89.23.105.66:5107',
   SETTINGS_SERVICE: 'http://89.23.105.66:5208/api',
+  AUTH_SERVICE: 'http://89.23.105.66:5001',
   
   AUTH: {
     LOGIN: '/api/auth/login',
     LOGOUT: '/api/auth/logout',
     REFRESH: '/api/auth/refresh',
+    CREATE_USER: '/api/auth/users',
   },
   
   USER: {
     GET_ALL: '/admin/users',
     GET_BY_ID: (id) => `/admin/users/${id}`,
-    CREATE: '/admin/users',
+    
     UPDATE_STATUS: (id) => `/admin/users/${id}/status`,
     UPDATE: (id) => `/admin/users/${id}`,
     DELETE: (id) => `/admin/users/${id}`,

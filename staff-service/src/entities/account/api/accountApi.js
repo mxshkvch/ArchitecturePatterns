@@ -1,10 +1,7 @@
-// entities/account/api/accountApi.js
 import { useQuery } from '@tanstack/react-query';
 import { coreService } from '../../../services/api';
 
-// Хук для получения счетов пользователя
 export const useAccountsQuery = (userId, page = 0, size = 20, status = '') => {
-  // page уже в 0-индексации, не нужно преобразовывать
   console.log('🔍 [useAccountsQuery] Query params:', { userId, page, size, status });
   
   return useQuery({
@@ -25,9 +22,7 @@ export const useAccountsQuery = (userId, page = 0, size = 20, status = '') => {
   });
 };
 
-// Хук для получения транзакций по счету
 export const useTransactionsQuery = (accountId, page = 0, size = 10, fromDate = null, toDate = null) => {
-  // page уже в 0-индексации
   console.log('🔍 [useTransactionsQuery] Query params:', { accountId, page, size, fromDate, toDate });
   
   return useQuery({
@@ -45,7 +40,6 @@ export const useTransactionsQuery = (accountId, page = 0, size = 10, fromDate = 
   });
 };
 
-// Хук для получения мастер-счета
 export const useMasterAccountQuery = () => {
   return useQuery({
     queryKey: ['masterAccount'],
@@ -60,7 +54,6 @@ export const useMasterAccountQuery = () => {
   });
 };
 
-// Хук для получения счета по ID
 export const useAccountById = (accountId) => {
   return useQuery({
     queryKey: ['account', accountId],

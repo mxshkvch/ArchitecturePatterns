@@ -4,6 +4,17 @@ class AuthService {
     this.roleKey = 'user_role';
     this.userKey = 'user';
   }
+  async createUser(userData) {
+    try {
+      console.log('📡 [AuthService] Creating user:', userData);
+      const response = await authApiClient.post(ENDPOINTS.AUTH.CREATE_USER, userData);
+      console.log('✅ [AuthService] User created:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AuthService] Error creating user:', error);
+      throw error;
+    }
+  }
   
   decodeJWT(token) {
     try {
