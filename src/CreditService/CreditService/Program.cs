@@ -110,6 +110,26 @@ var app = builder.Build();
 
 app.UseCors("AllowAll");
 
+app.Use(async (context, next) =>
+{
+    var errorRate = DateTime.UtcNow.Minute % 2 == 0 ? 0.7 : 0.3;
+    if (Random.Shared.NextDouble() < errorRate)
+    {
+        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            title = "Simulated instability",
+            status = (int)HttpStatusCode.InternalServerError,
+            detail = "Request failed due to simulated service instability.",
+            traceId = context.TraceIdentifier
+        });
+        return;
+    }
+
+    await next();
+});
+
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
