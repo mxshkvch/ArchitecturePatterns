@@ -144,27 +144,5 @@ services:
       postgres:
         condition: service_healthy
 
-  client-bank:
-    build:
-      context: .
-      dockerfile: client-bank/Dockerfile
-    container_name: bank_client
-    ports:
-      - "3000:80"
-    depends_on:
-      - coreservice
-      - bffservice
-
-  staff-service:
-    build:
-      context: .
-      dockerfile: staff-service/Dockerfile
-    container_name: bank_staff
-    ports:
-      - "3001:80"
-    depends_on:
-      - userservice
-      - creditservice
-
 volumes:
   postgres_data:

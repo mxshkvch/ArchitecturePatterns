@@ -21,6 +21,8 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using NSwag;
 using NSwag.Generation.Processors.Security;
+using System.Diagnostics;
+using System.Threading;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -120,28 +122,85 @@ builder.Services.AddSingleton<IConnection>(_ =>
 });
 
 var app = builder.Build();
+var requestActivitySource = new ActivitySource("CoreService.Requests");
+long totalRequests = 0;
+long failedRequests = 0;
 
 app.UseRouting();
 app.UseCors("AllowAll");
-
 app.Use(async (context, next) =>
 {
-    var errorRate = DateTime.UtcNow.Minute % 2 == 0 ? 0.7 : 0.3;
-    if (Random.Shared.NextDouble() < errorRate)
-    {
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-        context.Response.ContentType = "application/problem+json";
-        await context.Response.WriteAsJsonAsync(new
-        {
-            title = "Simulated instability",
-            status = (int)HttpStatusCode.InternalServerError,
-            detail = "Request failed due to simulated service instability.",
-            traceId = context.TraceIdentifier
-        });
-        return;
-    }
+    var requestNumber = Interlocked.Increment(ref totalRequests);
+    using var activity = requestActivitySource.StartActivity("http.request", ActivityKind.Server);
+    var stopwatch = Stopwatch.StartNew();
+    activity?.SetTag("http.method", context.Request.Method);
+    activity?.SetTag("http.route", context.Request.Path.Value);
+    activity?.SetTag("http.trace_id", context.TraceIdentifier);
 
-    await next();
+    var responseStatusCode = (int)HttpStatusCode.InternalServerError;
+    var requestFailed = false;
+    var errorRate = DateTime.UtcNow.Minute % 2 == 0 ? 0.7 : 0.3;
+
+    try
+    {
+        if (Random.Shared.NextDouble() < errorRate)
+        {
+            requestFailed = true;
+            Interlocked.Increment(ref failedRequests);
+            responseStatusCode = (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = responseStatusCode;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                title = "Simulated instability",
+                status = responseStatusCode,
+                detail = "Request failed due to simulated service instability.",
+                traceId = context.TraceIdentifier
+            });
+            return;
+        }
+
+        await next();
+        responseStatusCode = context.Response.StatusCode;
+        if (responseStatusCode >= 500)
+        {
+            requestFailed = true;
+            Interlocked.Increment(ref failedRequests);
+        }
+    }
+    catch
+    {
+        requestFailed = true;
+        Interlocked.Increment(ref failedRequests);
+        throw;
+    }
+    finally
+    {
+        stopwatch.Stop();
+        var errorCount = Volatile.Read(ref failedRequests);
+        var totalCount = Volatile.Read(ref totalRequests);
+        var errorPercentage = totalCount == 0 ? 0 : (double)errorCount / totalCount * 100;
+        if (requestFailed)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+        }
+
+        activity?.SetTag("http.status_code", responseStatusCode);
+        activity?.SetTag("request.duration_ms", stopwatch.Elapsed.TotalMilliseconds);
+        activity?.SetTag("request.error_percentage", errorPercentage);
+
+        app.Logger.LogInformation(
+            "Request #{RequestNumber} {Method} {Path} finished with {StatusCode} in {DurationMs} ms. Errors: {ErrorCount}/{TotalCount} ({ErrorPercentage:F2}%). TraceId: {TraceId}",
+            requestNumber,
+            context.Request.Method,
+            context.Request.Path.Value,
+            responseStatusCode,
+            stopwatch.Elapsed.TotalMilliseconds,
+            errorCount,
+            totalCount,
+            errorPercentage,
+            context.TraceIdentifier);
+    }
 });
 
 app.UseExceptionHandler(errorApp =>
