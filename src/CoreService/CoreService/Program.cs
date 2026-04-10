@@ -22,6 +22,7 @@ using FluentValidation.AspNetCore;
 using NSwag;
 using NSwag.Generation.Processors.Security;
 using System.Diagnostics;
+using System.Net.Http.Json;
 using System.Threading;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -88,6 +89,16 @@ builder.Services.AddAuthentication(x =>
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+var monitoringServiceUrl = builder.Configuration["Services:MonitoringServiceUrl"];
+var monitoringEnabled = !string.IsNullOrWhiteSpace(monitoringServiceUrl);
+if (monitoringEnabled)
+{
+    builder.Services.AddHttpClient("MonitoringService", client =>
+    {
+        client.BaseAddress = new Uri(monitoringServiceUrl!);
+        client.Timeout = TimeSpan.FromSeconds(2);
+    });
+}
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
@@ -200,6 +211,34 @@ app.Use(async (context, next) =>
             totalCount,
             errorPercentage,
             context.TraceIdentifier);
+
+        if (monitoringEnabled)
+        {
+            try
+            {
+                var httpClientFactory = context.RequestServices.GetService<IHttpClientFactory>();
+                if (httpClientFactory is not null)
+                {
+                    var monitoringClient = httpClientFactory.CreateClient("MonitoringService");
+                    await monitoringClient.PostAsJsonAsync("/api/monitoring/logs", new
+                    {
+                        ServiceName = "CoreService",
+                        Method = context.Request.Method,
+                        Path = context.Request.Path.Value ?? string.Empty,
+                        StatusCode = responseStatusCode,
+                        DurationMs = stopwatch.Elapsed.TotalMilliseconds,
+                        ErrorPercentage = errorPercentage,
+                        TraceId = context.TraceIdentifier,
+                        IsError = requestFailed,
+                        CreatedAtUtc = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogWarning(ex, "Failed to send telemetry to MonitoringService.");
+            }
+        }
     }
 });
 

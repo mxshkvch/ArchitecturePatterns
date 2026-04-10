@@ -51,11 +51,14 @@ services:
       - RabbitMq__UserName=guest
       - RabbitMq__Password=guest
       - RabbitMq__QueueName=core.account.operations
+      - Services__MonitoringServiceUrl=http://monitoringservice:8080/
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      monitoringservice:
+        condition: service_started
 
   userservice:
     build:
@@ -70,9 +73,12 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=UserService;Username=postgres;Password=postgres
       - Jwt__Issuer=black.auth
       - Jwt__Audience=black.api
+      - Services__MonitoringServiceUrl=http://monitoringservice:8080/
     depends_on:
       postgres:
         condition: service_healthy
+      monitoringservice:
+        condition: service_started
 
   authservice:
     build:
@@ -118,6 +124,7 @@ services:
       - Services__UserServiceUrl=http://userservice:8080/
       - Services__CoreServiceUrl=http://coreservice:8080/
       - Services__AuthServiceUrl=http://authservice:8080/
+      - Services__MonitoringServiceUrl=http://monitoringservice:8080/
       - OAuth__ClientId=credit-service
       - OAuth__ClientSecret=credit-service-secret
       - Jwt__Issuer=black.auth
@@ -126,6 +133,8 @@ services:
       postgres:
         condition: service_healthy
       authservice:
+        condition: service_started
+      monitoringservice:
         condition: service_started
 
   bffservice:
@@ -140,6 +149,20 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=BffService;Username=postgres;Password=postgres
       - Jwt__Issuer=black.auth
       - Jwt__Audience=black.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  monitoringservice:
+    build:
+      context: .
+      dockerfile: src/MonitoringService/Dockerfile
+    container_name: bank_monitoringservice
+    ports:
+      - "5300:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=MonitoringService;Username=postgres;Password=postgres
     depends_on:
       postgres:
         condition: service_healthy

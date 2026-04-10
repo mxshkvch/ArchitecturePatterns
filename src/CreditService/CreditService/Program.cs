@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using NSwag;
 using NSwag.Generation.Processors.Security;
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Diagnostics;
@@ -107,6 +108,16 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+var monitoringServiceUrl = builder.Configuration["Services:MonitoringServiceUrl"];
+var monitoringEnabled = !string.IsNullOrWhiteSpace(monitoringServiceUrl);
+if (monitoringEnabled)
+{
+    builder.Services.AddHttpClient("MonitoringService", client =>
+    {
+        client.BaseAddress = new Uri(monitoringServiceUrl!);
+        client.Timeout = TimeSpan.FromSeconds(2);
+    });
+}
 
 var app = builder.Build();
 var requestActivitySource = new ActivitySource("CreditService.Requests");
@@ -186,6 +197,34 @@ app.Use(async (context, next) =>
             totalCount,
             errorPercentage,
             context.TraceIdentifier);
+
+        if (monitoringEnabled)
+        {
+            try
+            {
+                var httpClientFactory = context.RequestServices.GetService<IHttpClientFactory>();
+                if (httpClientFactory is not null)
+                {
+                    var monitoringClient = httpClientFactory.CreateClient("MonitoringService");
+                    await monitoringClient.PostAsJsonAsync("/api/monitoring/logs", new
+                    {
+                        ServiceName = "CreditService",
+                        Method = context.Request.Method,
+                        Path = context.Request.Path.Value ?? string.Empty,
+                        StatusCode = responseStatusCode,
+                        DurationMs = stopwatch.Elapsed.TotalMilliseconds,
+                        ErrorPercentage = errorPercentage,
+                        TraceId = context.TraceIdentifier,
+                        IsError = requestFailed,
+                        CreatedAtUtc = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogWarning(ex, "Failed to send telemetry to MonitoringService.");
+            }
+        }
     }
 });
 

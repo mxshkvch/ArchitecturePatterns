@@ -3,3 +3,4 @@ CREATE DATABASE "CreditService";
 CREATE DATABASE "UserService";
 CREATE DATABASE "AuthDb";
 CREATE DATABASE "BffService";
+CREATE DATABASE "MonitoringService";
