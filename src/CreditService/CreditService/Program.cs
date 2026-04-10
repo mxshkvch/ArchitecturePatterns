@@ -13,6 +13,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NSwag;
 using NSwag.Generation.Processors.Security;
+using Polly;
+using Polly.Extensions.Http;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -75,12 +77,16 @@ var coreServiceUrl = builder.Configuration["Services:CoreServiceUrl"]
 builder.Services.AddHttpClient<IUserServiceClient, UserServiceClient>(client =>
 {
     client.BaseAddress = new Uri(userServiceUrl);
-});
+})
+    .AddPolicyHandler(GetRetryPolicy())
+    .AddPolicyHandler(GetCircuitBreakerPolicy());
 
 builder.Services.AddHttpClient<ICoreServiceClient, CoreServiceClient>(client =>
 {
     client.BaseAddress = new Uri(coreServiceUrl);
-});
+})
+    .AddPolicyHandler(GetRetryPolicy())
+    .AddPolicyHandler(GetCircuitBreakerPolicy());
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
@@ -116,7 +122,9 @@ if (monitoringEnabled)
     {
         client.BaseAddress = new Uri(monitoringServiceUrl!);
         client.Timeout = TimeSpan.FromSeconds(2);
-    });
+    })
+        .AddPolicyHandler(GetRetryPolicy())
+        .AddPolicyHandler(GetCircuitBreakerPolicy());
 }
 
 var app = builder.Build();
@@ -286,3 +294,21 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
+
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromMilliseconds(200 * retryAttempt));
+}
+
+static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .AdvancedCircuitBreakerAsync(
+            failureThreshold: 0.7,
+            samplingDuration: TimeSpan.FromSeconds(30),
+            minimumThroughput: 10,
+            durationOfBreak: TimeSpan.FromSeconds(30));
+}

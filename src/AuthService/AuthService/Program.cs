@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NSwag;
 using NSwag.Generation.Processors.Security;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,7 +49,9 @@ var userServiceUrl = builder.Configuration["Services:UserServiceUrl"]
 builder.Services.AddHttpClient<IUserDirectoryClient, UserDirectoryClient>(client =>
 {
     client.BaseAddress = new Uri(userServiceUrl);
-});
+})
+    .AddPolicyHandler(GetRetryPolicy())
+    .AddPolicyHandler(GetCircuitBreakerPolicy());
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
@@ -196,3 +200,21 @@ string GenerateSeedServiceToken()
 }
 
 await app.RunAsync();
+
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromMilliseconds(200 * retryAttempt));
+}
+
+static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .AdvancedCircuitBreakerAsync(
+            failureThreshold: 0.7,
+            samplingDuration: TimeSpan.FromSeconds(30),
+            minimumThroughput: 10,
+            durationOfBreak: TimeSpan.FromSeconds(30));
+}

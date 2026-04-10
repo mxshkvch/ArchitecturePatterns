@@ -7,6 +7,8 @@ using System.Text;
 using System.Text.Json.Serialization;
 using NSwag;
 using NSwag.Generation.Processors.Security;
+using Polly;
+using Polly.Extensions.Http;
 using UserService.Contracts.Common.Abstractions;
 using UserService.Contracts.Responses;
 using UserService.Data;
@@ -82,7 +84,9 @@ if (monitoringEnabled)
     {
         client.BaseAddress = new Uri(monitoringServiceUrl!);
         client.Timeout = TimeSpan.FromSeconds(2);
-    });
+    })
+        .AddPolicyHandler(GetRetryPolicy())
+        .AddPolicyHandler(GetCircuitBreakerPolicy());
 }
 
 var app = builder.Build();
@@ -275,3 +279,21 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromMilliseconds(200 * retryAttempt));
+}
+
+static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .AdvancedCircuitBreakerAsync(
+            failureThreshold: 0.7,
+            samplingDuration: TimeSpan.FromSeconds(30),
+            minimumThroughput: 10,
+            durationOfBreak: TimeSpan.FromSeconds(30));
+}

@@ -21,6 +21,8 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using NSwag;
 using NSwag.Generation.Processors.Security;
+using Polly;
+using Polly.Extensions.Http;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Threading;
@@ -97,7 +99,9 @@ if (monitoringEnabled)
     {
         client.BaseAddress = new Uri(monitoringServiceUrl!);
         client.Timeout = TimeSpan.FromSeconds(2);
-    });
+    })
+        .AddPolicyHandler(GetRetryPolicy())
+        .AddPolicyHandler(GetCircuitBreakerPolicy());
 }
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -110,7 +114,9 @@ builder.Services.AddHttpClient<IExchangeRateService, ExchangeRateService>((servi
 {
     var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ExchangeRateOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl);
-});
+})
+    .AddPolicyHandler(GetRetryPolicy())
+    .AddPolicyHandler(GetCircuitBreakerPolicy());
 builder.Services.AddScoped<IAccountOperationPublisher, RabbitMqAccountOperationPublisher>();
 builder.Services.AddScoped<IAccountOperationProcessor, AccountOperationProcessor>();
 builder.Services.AddHostedService<RabbitMqAccountOperationWorker>();
@@ -372,3 +378,21 @@ var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 db.Database.Migrate();
 
 await app.RunAsync();
+
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromMilliseconds(200 * retryAttempt));
+}
+
+static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .AdvancedCircuitBreakerAsync(
+            failureThreshold: 0.7,
+            samplingDuration: TimeSpan.FromSeconds(30),
+            minimumThroughput: 10,
+            durationOfBreak: TimeSpan.FromSeconds(30));
+}
