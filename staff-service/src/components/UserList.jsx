@@ -9,6 +9,7 @@ import { createCreditTariff } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import CreateUserModal from './CreateUserModal';
 import { createUser } from '../services/api';
+import { useTheme } from '../ThemeContext';
 
 const UserList = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,11 +20,12 @@ const UserList = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [pageInfo, setPageInfo] = useState({
     page: 0,
-    size: 5, // Оставляем 5, так как сервер возвращает по 5 элементов
+    size: 5,
     totalElements: 0,
     totalPages: 0
   });
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const { isDarkMode } = useTheme(); // Получаем состояние темы
 
   // Добавляем эффект для отладки
   useEffect(() => {
@@ -62,12 +64,10 @@ const UserList = () => {
       console.log('Полученные данные от API:', data);
       
       if (data && data.content && data.page) {
-        // Формат Spring Page
         setUsers(data.content);
         
-        // Информация о пагинации находится в data.page
         setPageInfo({
-          page: data.page.page, // Используем data.page.page (индексация с 0)
+          page: data.page.page, 
           size: data.page.size,
           totalElements: data.page.totalElements,
           totalPages: data.page.totalPages
@@ -157,10 +157,20 @@ const UserList = () => {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
+    <div style={{
+      ...styles.container,
+      backgroundColor: 'var(--bg-primary)'
+    }}>
+      <div style={{
+        ...styles.header,
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--shadow)'
+      }}>
         <div style={styles.headerLeft}>
-          <h1 style={styles.title}>Управление пользователями</h1>
+          <h1 style={{
+            ...styles.title,
+            color: 'var(--text-color)'
+          }}>Управление пользователями</h1>
           <button 
             onClick={() => navigate('/credits')} 
             style={styles.creditsButton}
@@ -181,8 +191,12 @@ const UserList = () => {
           >
             ➕ Создать ставку
           </button>
-          <div style={styles.stats}>
-            Всего пользователей: <strong>{pageInfo.totalElements}</strong>
+          <div style={{
+            ...styles.stats,
+            backgroundColor: 'var(--bg-secondary)',
+            color: 'var(--text-secondary)'
+          }}>
+            Всего пользователей: <strong style={{ color: 'var(--text-color)' }}>{pageInfo.totalElements}</strong>
           </div>
         </div>
       </div>
@@ -195,8 +209,15 @@ const UserList = () => {
       />
 
       {error ? (
-        <div style={styles.errorContainer}>
-          <p style={styles.errorText}>{error}</p>
+        <div style={{
+          ...styles.errorContainer,
+          backgroundColor: 'var(--card-bg)',
+          boxShadow: 'var(--shadow)'
+        }}>
+          <p style={{
+            ...styles.errorText,
+            color: 'var(--error-color)'
+          }}>{error}</p>
           <button onClick={() => loadUsers(0)} style={styles.retryButton}>
             Попробовать снова
           </button>
@@ -204,8 +225,15 @@ const UserList = () => {
       ) : (
         <>
           {users.length === 0 ? (
-            <div style={styles.emptyContainer}>
-              <p style={styles.emptyText}>Пользователи не найдены</p>
+            <div style={{
+              ...styles.emptyContainer,
+              backgroundColor: 'var(--card-bg)',
+              boxShadow: 'var(--shadow)'
+            }}>
+              <p style={{
+                ...styles.emptyText,
+                color: 'var(--text-secondary)'
+              }}>Пользователи не найдены</p>
             </div>
           ) : (
             <>
@@ -231,7 +259,11 @@ const UserList = () => {
               )}
               
               {/* Для отладки показываем информацию о пагинации */}
-              <div style={styles.debugInfo}>
+              <div style={{
+                ...styles.debugInfo,
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)'
+              }}>
                 Текущая страница: {pageInfo.page + 1} из {pageInfo.totalPages}, 
                 Всего элементов: {pageInfo.totalElements}, 
                 Элементов на странице: {pageInfo.size}
@@ -261,10 +293,9 @@ const styles = {
     maxWidth: '1400px',
     margin: '0 auto',
     padding: '30px 20px',
-    left: '1000000px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    backgroundColor: '#f8fafc',
-    minHeight: '100vh'
+    minHeight: '100vh',
+    transition: 'background-color 0.3s ease'
   },
   header: {
     display: 'flex',
@@ -273,9 +304,8 @@ const styles = {
     marginBottom: '30px',
     padding: '20px',
     textAlign: 'center',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   headerLeft: {
     display: 'flex',
@@ -289,9 +319,9 @@ const styles = {
   },
   title: {
     margin: 0,
-    color: '#1e293b',
     fontSize: '2em',
-    fontWeight: '600'
+    fontWeight: '600',
+    transition: 'color 0.3s ease'
   },
   creditsButton: {
     padding: '8px 16px',
@@ -301,12 +331,7 @@ const styles = {
     color: '#3b82f6',
     cursor: 'pointer',
     fontSize: '0.95em',
-    transition: 'all 0.2s',
-    ':hover': {
-      backgroundColor: '#3b82f6',
-      color: 'white',
-      borderColor: '#3b82f6'
-    }
+    transition: 'all 0.2s'
   },
   createUserButton: {
     padding: '8px 16px',
@@ -316,10 +341,7 @@ const styles = {
     color: 'white',
     cursor: 'pointer',
     fontSize: '0.95em',
-    transition: 'background-color 0.2s',
-    ':hover': {
-      backgroundColor: '#059669'
-    }
+    transition: 'background-color 0.2s'
   },
   createRateButton: {
     padding: '8px 16px',
@@ -329,17 +351,13 @@ const styles = {
     color: 'white',
     cursor: 'pointer',
     fontSize: '0.95em',
-    transition: 'background-color 0.2s',
-    ':hover': {
-      backgroundColor: '#7c3aed'
-    }
+    transition: 'background-color 0.2s'
   },
   stats: {
-    color: '#64748b',
     fontSize: '1.1em',
     padding: '8px 16px',
-    backgroundColor: '#f1f5f9',
-    borderRadius: '8px'
+    borderRadius: '8px',
+    transition: 'all 0.3s ease'
   },
   userGrid: {
     display: 'grid',
@@ -350,14 +368,13 @@ const styles = {
   errorContainer: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   errorText: {
-    color: '#ef4444',
     fontSize: '1.2em',
-    marginBottom: '20px'
+    marginBottom: '20px',
+    transition: 'color 0.3s ease'
   },
   retryButton: {
     padding: '12px 24px',
@@ -368,30 +385,52 @@ const styles = {
     cursor: 'pointer',
     fontSize: '1em',
     fontWeight: '500',
-    transition: 'background-color 0.2s',
-    ':hover': {
-      backgroundColor: '#2563eb'
-    }
+    transition: 'background-color 0.2s'
   },
   emptyContainer: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   emptyText: {
-    color: '#64748b',
-    fontSize: '1.2em'
+    fontSize: '1.2em',
+    transition: 'color 0.3s ease'
   },
   debugInfo: {
     marginTop: '20px',
     padding: '10px',
-    backgroundColor: '#f1f5f9',
     borderRadius: '8px',
-    color: '#64748b',
     fontSize: '0.9em',
-    textAlign: 'center'
+    textAlign: 'center',
+    transition: 'all 0.3s ease'
+  }
+};
+
+// Добавляем hover эффекты через CSS-in-JS (можно добавить глобально в theme.css)
+// Для кнопок добавляем динамические стили
+const buttonHoverStyles = {
+  creditsButton: {
+    ':hover': {
+      backgroundColor: '#3b82f6',
+      color: 'white',
+      borderColor: '#3b82f6'
+    }
+  },
+  createUserButton: {
+    ':hover': {
+      backgroundColor: '#059669'
+    }
+  },
+  createRateButton: {
+    ':hover': {
+      backgroundColor: '#7c3aed'
+    }
+  },
+  retryButton: {
+    ':hover': {
+      backgroundColor: '#2563eb'
+    }
   }
 };
 

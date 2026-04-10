@@ -4,10 +4,12 @@ import { getAccountTransactions } from '../services/api';
 import TransactionCard from './TransactionCard';
 import LoadingSpinner from './LoadingSpinner';
 import DateFilter from './DateFilter';
+import { useTheme } from '../ThemeContext';
 
 const AccountTransactions = () => {
   const { accountId, userId } = useParams();
   const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
   
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,8 +17,8 @@ const AccountTransactions = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [pageInfo, setPageInfo] = useState({
-    page: 1, // Меняем с 0 на 1 (1-индексация)
-    size: 5, // Меняем с 20 на 5
+    page: 1,
+    size: 5,
     totalElements: 0,
     totalPages: 0
   });
@@ -27,7 +29,7 @@ const AccountTransactions = () => {
   }, [pageInfo]);
 
   useEffect(() => {
-    loadTransactions(1); // Меняем с 0 на 1
+    loadTransactions(1);
   }, [accountId, fromDate, toDate]);
 
   const loadTransactions = async (page = 1) => {
@@ -44,7 +46,7 @@ const AccountTransactions = () => {
       const data = await getAccountTransactions(
         accountId, 
         page, 
-        pageInfo.size, // Используем size из state (5)
+        pageInfo.size,
         fromDate || null, 
         toDate || null
       );
@@ -52,12 +54,10 @@ const AccountTransactions = () => {
       console.log('Полученные данные транзакций:', data);
       
       if (data && data.content && data.page) {
-        // Формат Spring Page
         setTransactions(data.content);
         
-        // API возвращает page с 0-индексацией, поэтому преобразуем
         setPageInfo({
-          page: data.page.page + 1, // Преобразуем из 0-индексации в 1-индексацию
+          page: data.page.page + 1,
           size: data.page.size,
           totalElements: data.page.totalElements,
           totalPages: data.page.totalPages
@@ -92,14 +92,12 @@ const AccountTransactions = () => {
   const handleDateFilterChange = (newFromDate, newToDate) => {
     setFromDate(newFromDate);
     setToDate(newToDate);
-    // Сбрасываем на первую страницу при изменении фильтров
     loadTransactions(1);
   };
 
   const handleClearFilters = () => {
     setFromDate('');
     setToDate('');
-    // Сбрасываем на первую страницу при очистке фильтров
     loadTransactions(1);
   };
 
@@ -157,17 +155,31 @@ const AccountTransactions = () => {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
+    <div style={{
+      ...styles.container,
+      backgroundColor: 'var(--bg-primary)'
+    }}>
+      <div style={{
+        ...styles.header,
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--shadow)'
+      }}>
         <button 
           onClick={() => navigate(`/users/${userId}`)} 
           style={styles.backButton}
         >
           ← Назад к счетам
         </button>
-        <h1 style={styles.title}>История операций по счету</h1>
-        <div style={styles.accountInfo}>
-          Счет: <strong>{accountId.slice(0, 8)}...</strong>
+        <h1 style={{
+          ...styles.title,
+          color: 'var(--text-color)'
+        }}>История операций по счету</h1>
+        <div style={{
+          ...styles.accountInfo,
+          backgroundColor: 'var(--bg-secondary)',
+          color: 'var(--text-secondary)'
+        }}>
+          Счет: <strong style={{ color: 'var(--text-color)' }}>{accountId.slice(0, 8)}...</strong>
         </div>
       </div>
 
@@ -179,8 +191,15 @@ const AccountTransactions = () => {
       />
 
       {error ? (
-        <div style={styles.errorContainer}>
-          <p style={styles.errorText}>{error}</p>
+        <div style={{
+          ...styles.errorContainer,
+          backgroundColor: 'var(--card-bg)',
+          boxShadow: 'var(--shadow)'
+        }}>
+          <p style={{
+            ...styles.errorText,
+            color: 'var(--error-color)'
+          }}>{error}</p>
           <button onClick={() => loadTransactions(1)} style={styles.retryButton}>
             Попробовать снова
           </button>
@@ -188,8 +207,15 @@ const AccountTransactions = () => {
       ) : (
         <>
           {transactions.length === 0 ? (
-            <div style={styles.emptyContainer}>
-              <p style={styles.emptyText}>Операции по счету не найдены</p>
+            <div style={{
+              ...styles.emptyContainer,
+              backgroundColor: 'var(--card-bg)',
+              boxShadow: 'var(--shadow)'
+            }}>
+              <p style={{
+                ...styles.emptyText,
+                color: 'var(--text-secondary)'
+              }}>Операции по счету не найдены</p>
               {(fromDate || toDate) && (
                 <button onClick={handleClearFilters} style={styles.clearFiltersButton}>
                   Сбросить фильтры
@@ -198,8 +224,13 @@ const AccountTransactions = () => {
             </div>
           ) : (
             <>
-              <div style={styles.stats}>
-                Найдено операций: <strong>{pageInfo.totalElements}</strong>
+              <div style={{
+                ...styles.stats,
+                backgroundColor: 'var(--card-bg)',
+                boxShadow: 'var(--shadow)',
+                color: 'var(--text-secondary)'
+              }}>
+                Найдено операций: <strong style={{ color: 'var(--text-color)' }}>{pageInfo.totalElements}</strong>
               </div>
 
               <div style={styles.transactionsList}>
@@ -217,11 +248,20 @@ const AccountTransactions = () => {
 
               {/* Отображаем пагинацию только если есть несколько страниц */}
               {pageInfo.totalPages > 1 && (
-                <div style={styles.pagination}>
+                <div style={{
+                  ...styles.pagination,
+                  backgroundColor: 'var(--card-bg)',
+                  boxShadow: 'var(--shadow)'
+                }}>
                   <button
                     onClick={() => handlePageChange(pageInfo.page - 1)}
                     disabled={pageInfo.page === 1}
-                    style={styles.pageButton}
+                    style={{
+                      ...styles.pageButton,
+                      backgroundColor: 'var(--button-bg)',
+                      borderColor: 'var(--border-color)',
+                      color: 'var(--text-secondary)'
+                    }}
                   >
                     ←
                   </button>
@@ -234,6 +274,9 @@ const AccountTransactions = () => {
                         onClick={() => handlePageChange(pageNum)}
                         style={{
                           ...styles.pageNumberButton,
+                          backgroundColor: pageNum === pageInfo.page ? 'var(--primary-color)' : 'var(--button-bg)',
+                          borderColor: 'var(--border-color)',
+                          color: pageNum === pageInfo.page ? 'white' : 'var(--text-secondary)',
                           ...(pageNum === pageInfo.page ? styles.pageNumberButtonActive : {})
                         }}
                       >
@@ -245,7 +288,12 @@ const AccountTransactions = () => {
                   <button
                     onClick={() => handlePageChange(pageInfo.page + 1)}
                     disabled={pageInfo.page >= pageInfo.totalPages}
-                    style={styles.pageButton}
+                    style={{
+                      ...styles.pageButton,
+                      backgroundColor: 'var(--button-bg)',
+                      borderColor: 'var(--border-color)',
+                      color: 'var(--text-secondary)'
+                    }}
                   >
                     →
                   </button>
@@ -253,7 +301,11 @@ const AccountTransactions = () => {
               )}
 
               {/* Для отладки показываем информацию о пагинации */}
-              <div style={styles.debugInfo}>
+              <div style={{
+                ...styles.debugInfo,
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)'
+              }}>
                 Текущая страница: {pageInfo.page} из {pageInfo.totalPages}, 
                 Всего операций: {pageInfo.totalElements}, 
                 Операций на странице: {pageInfo.size}
@@ -272,8 +324,8 @@ const styles = {
     margin: '0 auto',
     padding: '30px 20px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    backgroundColor: '#f8fafc',
-    minHeight: '100vh'
+    minHeight: '100vh',
+    transition: 'background-color 0.3s ease'
   },
   header: {
     display: 'flex',
@@ -281,46 +333,42 @@ const styles = {
     alignItems: 'center',
     marginBottom: '30px',
     padding: '20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   backButton: {
     padding: '8px 16px',
-    backgroundColor: '#f8fafc',
-    border: '1px solid #e2e8f0',
+    backgroundColor: 'var(--button-bg)',
+    border: '1px solid var(--border-color)',
     borderRadius: '8px',
-    color: '#64748b',
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
     fontSize: '0.95em',
     transition: 'all 0.2s',
     ':hover': {
-      backgroundColor: '#f1f5f9',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)',
+      color: 'var(--primary-color)'
     }
   },
   title: {
     margin: 0,
-    color: '#1e293b',
     fontSize: '1.8em',
-    fontWeight: '600'
+    fontWeight: '600',
+    transition: 'color 0.3s ease'
   },
   accountInfo: {
-    color: '#64748b',
     fontSize: '1em',
     padding: '8px 16px',
-    backgroundColor: '#f1f5f9',
-    borderRadius: '8px'
+    borderRadius: '8px',
+    transition: 'all 0.3s ease'
   },
   stats: {
     marginBottom: '20px',
     padding: '15px 20px',
-    backgroundColor: 'white',
     borderRadius: '8px',
-    color: '#64748b',
     fontSize: '1.1em',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   transactionsList: {
     display: 'flex',
@@ -334,9 +382,8 @@ const styles = {
     alignItems: 'center',
     gap: '20px',
     padding: '20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   pageNumbers: {
     display: 'flex',
@@ -344,17 +391,15 @@ const styles = {
   },
   pageButton: {
     padding: '8px 16px',
-    backgroundColor: 'white',
-    border: '1px solid #e2e8f0',
+    border: '1px solid',
     borderRadius: '8px',
-    color: '#64748b',
     cursor: 'pointer',
     fontSize: '1em',
     transition: 'all 0.2s',
     ':hover:not(:disabled)': {
-      backgroundColor: '#f8fafc',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)',
+      color: 'var(--primary-color)'
     },
     ':disabled': {
       opacity: 0.5,
@@ -365,48 +410,37 @@ const styles = {
     minWidth: '40px',
     height: '40px',
     padding: '0 8px',
-    border: '1px solid #e2e8f0',
+    border: '1px solid',
     borderRadius: '8px',
-    backgroundColor: 'white',
-    color: '#64748b',
     cursor: 'pointer',
     fontSize: '0.95em',
     transition: 'all 0.2s',
     ':hover': {
-      backgroundColor: '#f8fafc',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)'
     }
   },
   pageNumberButtonActive: {
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    borderColor: '#3b82f6',
+    cursor: 'pointer',
     ':hover': {
-      backgroundColor: '#2563eb',
-      color: 'white',
-      borderColor: '#2563eb'
+      backgroundColor: 'var(--primary-hover)',
+      color: 'white'
     }
-  },
-  pageInfo: {
-    color: '#64748b',
-    fontSize: '1em'
   },
   errorContainer: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   errorText: {
-    color: '#ef4444',
     fontSize: '1.2em',
-    marginBottom: '20px'
+    marginBottom: '20px',
+    transition: 'color 0.3s ease'
   },
   retryButton: {
     padding: '12px 24px',
-    backgroundColor: '#3b82f6',
+    backgroundColor: 'var(--primary-color)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -415,44 +449,42 @@ const styles = {
     fontWeight: '500',
     transition: 'background-color 0.2s',
     ':hover': {
-      backgroundColor: '#2563eb'
+      backgroundColor: 'var(--primary-hover)'
     }
   },
   emptyContainer: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   emptyText: {
-    color: '#64748b',
     fontSize: '1.2em',
-    marginBottom: '20px'
+    marginBottom: '20px',
+    transition: 'color 0.3s ease'
   },
   clearFiltersButton: {
     padding: '10px 20px',
-    backgroundColor: '#f8fafc',
-    border: '1px solid #e2e8f0',
+    backgroundColor: 'var(--button-bg)',
+    border: '1px solid var(--border-color)',
     borderRadius: '8px',
-    color: '#64748b',
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
     fontSize: '0.95em',
     transition: 'all 0.2s',
     ':hover': {
-      backgroundColor: '#f1f5f9',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)',
+      color: 'var(--primary-color)'
     }
   },
   debugInfo: {
     marginTop: '20px',
     padding: '10px',
-    backgroundColor: '#f1f5f9',
     borderRadius: '8px',
-    color: '#64748b',
     fontSize: '0.9em',
-    textAlign: 'center'
+    textAlign: 'center',
+    transition: 'all 0.3s ease'
   }
 };
 

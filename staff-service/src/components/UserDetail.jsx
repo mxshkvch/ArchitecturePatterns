@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { getUserAccounts } from '../services/api'; // 👈 Только этот импорт
+import { getUserAccounts } from '../services/api'; 
 import AccountCard from './AccountCard';
 import LoadingSpinner from './LoadingSpinner';
+import { useTheme } from '../ThemeContext';
 
 const UserAccounts = () => {
   const { userId } = useParams();
+  const { isDarkMode } = useTheme();
   
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,14 +19,16 @@ const UserAccounts = () => {
     totalElements: 0,
     totalPages: 0
   });
-const formatDate = (dateString) => {
-  if (!dateString) return '—';
-  return new Date(dateString).toLocaleDateString('ru-RU', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   // Загрузка счетов
   const loadAccounts = useCallback(async (page = 0) => {
     try {
@@ -83,8 +87,15 @@ const formatDate = (dateString) => {
 
   if (error) {
     return (
-      <div style={styles.errorContainer}>
-        <p style={styles.errorText}>{error}</p>
+      <div style={{
+        ...styles.errorContainer,
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--shadow)'
+      }}>
+        <p style={{
+          ...styles.errorText,
+          color: 'var(--error-color)'
+        }}>{error}</p>
         <button onClick={() => loadAccounts(0)} style={styles.retryButton}>
           Попробовать снова
         </button>
@@ -93,22 +104,46 @@ const formatDate = (dateString) => {
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Счета пользователя</h1>
-        <div style={styles.totalAccounts}>
-          Всего счетов: <strong>{pageInfo.totalElements}</strong>
+    <div style={{
+      ...styles.container,
+      backgroundColor: 'var(--bg-primary)'
+    }}>
+      <div style={{
+        ...styles.header,
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--shadow)'
+      }}>
+        <h1 style={{
+          ...styles.title,
+          color: 'var(--text-color)'
+        }}>Счета пользователя</h1>
+        <div style={{
+          ...styles.totalAccounts,
+          backgroundColor: 'var(--bg-secondary)',
+          color: 'var(--text-secondary)'
+        }}>
+          Всего счетов: <strong style={{ color: 'var(--text-color)' }}>{pageInfo.totalElements}</strong>
         </div>
       </div>
 
       {/* Фильтр по статусу счета */}
-      <div style={styles.filterContainer}>
-        <span style={styles.filterLabel}>Статус счета:</span>
+      <div style={{
+        ...styles.filterContainer,
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--shadow)'
+      }}>
+        <span style={{
+          ...styles.filterLabel,
+          color: 'var(--text-secondary)'
+        }}>Статус счета:</span>
         <div style={styles.buttonGroup}>
           <button
             onClick={() => handleStatusChange('')}
             style={{
               ...styles.filterButton,
+              backgroundColor: selectedStatus === '' ? 'var(--primary-color)' : 'var(--button-bg)',
+              borderColor: 'var(--border-color)',
+              color: selectedStatus === '' ? 'white' : 'var(--text-secondary)',
               ...(selectedStatus === '' ? styles.filterButtonActive : {})
             }}
           >
@@ -120,6 +155,9 @@ const formatDate = (dateString) => {
               onClick={() => handleStatusChange(status)}
               style={{
                 ...styles.filterButton,
+                backgroundColor: selectedStatus === status ? 'var(--primary-color)' : 'var(--button-bg)',
+                borderColor: 'var(--border-color)',
+                color: selectedStatus === status ? 'white' : 'var(--text-secondary)',
                 ...(selectedStatus === status ? styles.filterButtonActive : {})
               }}
             >
@@ -132,7 +170,11 @@ const formatDate = (dateString) => {
       </div>
 
       {accounts.length === 0 ? (
-        <div style={styles.noAccounts}>
+        <div style={{
+          ...styles.noAccounts,
+          backgroundColor: 'var(--card-bg)',
+          color: 'var(--text-secondary)'
+        }}>
           <p>У пользователя нет счетов</p>
         </div>
       ) : (
@@ -151,23 +193,40 @@ const formatDate = (dateString) => {
           </div>
 
           {pageInfo.totalPages > 1 && (
-            <div style={styles.pagination}>
+            <div style={{
+              ...styles.pagination,
+              backgroundColor: 'var(--card-bg)',
+              boxShadow: 'var(--shadow)'
+            }}>
               <button
                 onClick={() => handlePageChange(pageInfo.page - 1)}
                 disabled={pageInfo.page === 0}
-                style={styles.pageButton}
+                style={{
+                  ...styles.pageButton,
+                  backgroundColor: 'var(--button-bg)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-secondary)'
+                }}
               >
                 ←
               </button>
               
-              <span style={styles.pageInfo}>
+              <span style={{
+                ...styles.pageInfo,
+                color: 'var(--text-secondary)'
+              }}>
                 Страница {pageInfo.page + 1} из {pageInfo.totalPages}
               </span>
               
               <button
                 onClick={() => handlePageChange(pageInfo.page + 1)}
                 disabled={pageInfo.page === pageInfo.totalPages - 1}
-                style={styles.pageButton}
+                style={{
+                  ...styles.pageButton,
+                  backgroundColor: 'var(--button-bg)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-secondary)'
+                }}
               >
                 →
               </button>
@@ -185,8 +244,8 @@ const styles = {
     margin: '0 auto',
     padding: '30px 20px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    backgroundColor: '#f8fafc',
-    minHeight: '100vh'
+    minHeight: '100vh',
+    transition: 'background-color 0.3s ease'
   },
   header: {
     display: 'flex',
@@ -194,22 +253,20 @@ const styles = {
     alignItems: 'center',
     marginBottom: '25px',
     padding: '20px',
-    backgroundColor: 'white',
     borderRadius: '16px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   title: {
     margin: 0,
-    color: '#1e293b',
     fontSize: '1.8em',
-    fontWeight: '600'
+    fontWeight: '600',
+    transition: 'color 0.3s ease'
   },
   totalAccounts: {
-    color: '#64748b',
     fontSize: '1.1em',
     padding: '8px 16px',
-    backgroundColor: '#f1f5f9',
-    borderRadius: '8px'
+    borderRadius: '8px',
+    transition: 'all 0.3s ease'
   },
   filterContainer: {
     display: 'flex',
@@ -217,14 +274,13 @@ const styles = {
     gap: '15px',
     marginBottom: '25px',
     padding: '15px 20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   filterLabel: {
-    color: '#64748b',
     fontSize: '0.95em',
-    fontWeight: '500'
+    fontWeight: '500',
+    transition: 'color 0.3s ease'
   },
   buttonGroup: {
     display: 'flex',
@@ -233,22 +289,22 @@ const styles = {
   },
   filterButton: {
     padding: '8px 16px',
-    border: '1px solid #e2e8f0',
+    border: '1px solid',
     borderRadius: '8px',
-    backgroundColor: 'white',
-    color: '#64748b',
     cursor: 'pointer',
     fontSize: '0.95em',
     transition: 'all 0.2s',
     ':hover': {
-      backgroundColor: '#f8fafc',
-      borderColor: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)',
+      color: 'var(--primary-color)'
     }
   },
   filterButtonActive: {
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    borderColor: '#3b82f6'
+    ':hover': {
+      backgroundColor: 'var(--primary-hover)',
+      color: 'white'
+    }
   },
   accountsGrid: {
     display: 'grid',
@@ -263,23 +319,20 @@ const styles = {
     gap: '20px',
     marginTop: '20px',
     padding: '20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   pageButton: {
     padding: '8px 16px',
-    backgroundColor: 'white',
-    border: '1px solid #e2e8f0',
+    border: '1px solid',
     borderRadius: '8px',
-    color: '#64748b',
     cursor: 'pointer',
     fontSize: '1em',
     transition: 'all 0.2s',
     ':hover:not(:disabled)': {
-      backgroundColor: '#f8fafc',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)',
+      color: 'var(--primary-color)'
     },
     ':disabled': {
       opacity: 0.5,
@@ -287,40 +340,42 @@ const styles = {
     }
   },
   pageInfo: {
-    color: '#64748b',
-    fontSize: '1em'
+    fontSize: '1em',
+    transition: 'color 0.3s ease'
   },
   errorContainer: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '16px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
     maxWidth: '500px',
-    margin: '100px auto'
+    margin: '100px auto',
+    transition: 'all 0.3s ease'
   },
   errorText: {
-    color: '#ef4444',
     fontSize: '1.2em',
-    marginBottom: '20px'
+    marginBottom: '20px',
+    transition: 'color 0.3s ease'
   },
   retryButton: {
     padding: '10px 20px',
-    backgroundColor: '#3b82f6',
+    backgroundColor: 'var(--primary-color)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '0.95em',
-    marginTop: '10px'
+    marginTop: '10px',
+    transition: 'background-color 0.2s',
+    ':hover': {
+      backgroundColor: 'var(--primary-hover)'
+    }
   },
   noAccounts: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '16px',
-    color: '#64748b',
-    fontSize: '1.1em'
+    fontSize: '1.1em',
+    transition: 'all 0.3s ease'
   }
 };
 

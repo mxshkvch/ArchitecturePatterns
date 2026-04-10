@@ -13,9 +13,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NSwag;
 using NSwag.Generation.Processors.Security;
+using Polly;
+using Polly.Extensions.Http;
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Diagnostics;
+using System.Threading;
 using UserService.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,12 +77,16 @@ var coreServiceUrl = builder.Configuration["Services:CoreServiceUrl"]
 builder.Services.AddHttpClient<IUserServiceClient, UserServiceClient>(client =>
 {
     client.BaseAddress = new Uri(userServiceUrl);
-});
+})
+    .AddPolicyHandler(GetRetryPolicy())
+    .AddPolicyHandler(GetCircuitBreakerPolicy());
 
 builder.Services.AddHttpClient<ICoreServiceClient, CoreServiceClient>(client =>
 {
     client.BaseAddress = new Uri(coreServiceUrl);
-});
+})
+    .AddPolicyHandler(GetRetryPolicy())
+    .AddPolicyHandler(GetCircuitBreakerPolicy());
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "black.auth";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "black.api";
@@ -105,10 +114,127 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+var monitoringServiceUrl = builder.Configuration["Services:MonitoringServiceUrl"];
+var monitoringEnabled = !string.IsNullOrWhiteSpace(monitoringServiceUrl);
+if (monitoringEnabled)
+{
+    builder.Services.AddHttpClient("MonitoringService", client =>
+    {
+        client.BaseAddress = new Uri(monitoringServiceUrl!);
+        client.Timeout = TimeSpan.FromSeconds(2);
+    })
+        .AddPolicyHandler(GetRetryPolicy())
+        .AddPolicyHandler(GetCircuitBreakerPolicy());
+}
 
 var app = builder.Build();
+var requestActivitySource = new ActivitySource("CreditService.Requests");
+long totalRequests = 0;
+long failedRequests = 0;
 
 app.UseCors("AllowAll");
+app.Use(async (context, next) =>
+{
+    var requestNumber = Interlocked.Increment(ref totalRequests);
+    using var activity = requestActivitySource.StartActivity("http.request", ActivityKind.Server);
+    var stopwatch = Stopwatch.StartNew();
+    activity?.SetTag("http.method", context.Request.Method);
+    activity?.SetTag("http.route", context.Request.Path.Value);
+    activity?.SetTag("http.trace_id", context.TraceIdentifier);
+
+    var responseStatusCode = (int)HttpStatusCode.InternalServerError;
+    var requestFailed = false;
+    var errorRate = DateTime.UtcNow.Minute % 2 == 0 ? 0.7 : 0.3;
+
+    try
+    {
+        if (Random.Shared.NextDouble() < errorRate)
+        {
+            requestFailed = true;
+            Interlocked.Increment(ref failedRequests);
+            responseStatusCode = (int)HttpStatusCode.InternalServerError;
+            context.Response.StatusCode = responseStatusCode;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                title = "Simulated instability",
+                status = responseStatusCode,
+                detail = "Request failed due to simulated service instability.",
+                traceId = context.TraceIdentifier
+            });
+            return;
+        }
+
+        await next();
+        responseStatusCode = context.Response.StatusCode;
+        if (responseStatusCode >= 500)
+        {
+            requestFailed = true;
+            Interlocked.Increment(ref failedRequests);
+        }
+    }
+    catch
+    {
+        requestFailed = true;
+        Interlocked.Increment(ref failedRequests);
+        throw;
+    }
+    finally
+    {
+        stopwatch.Stop();
+        var errorCount = Volatile.Read(ref failedRequests);
+        var totalCount = Volatile.Read(ref totalRequests);
+        var errorPercentage = totalCount == 0 ? 0 : (double)errorCount / totalCount * 100;
+        if (requestFailed)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+        }
+
+        activity?.SetTag("http.status_code", responseStatusCode);
+        activity?.SetTag("request.duration_ms", stopwatch.Elapsed.TotalMilliseconds);
+        activity?.SetTag("request.error_percentage", errorPercentage);
+
+        app.Logger.LogInformation(
+            "Request #{RequestNumber} {Method} {Path} finished with {StatusCode} in {DurationMs} ms. Errors: {ErrorCount}/{TotalCount} ({ErrorPercentage:F2}%). TraceId: {TraceId}",
+            requestNumber,
+            context.Request.Method,
+            context.Request.Path.Value,
+            responseStatusCode,
+            stopwatch.Elapsed.TotalMilliseconds,
+            errorCount,
+            totalCount,
+            errorPercentage,
+            context.TraceIdentifier);
+
+        if (monitoringEnabled)
+        {
+            try
+            {
+                var httpClientFactory = context.RequestServices.GetService<IHttpClientFactory>();
+                if (httpClientFactory is not null)
+                {
+                    var monitoringClient = httpClientFactory.CreateClient("MonitoringService");
+                    await monitoringClient.PostAsJsonAsync("/api/monitoring/logs", new
+                    {
+                        ServiceName = "CreditService",
+                        Method = context.Request.Method,
+                        Path = context.Request.Path.Value ?? string.Empty,
+                        StatusCode = responseStatusCode,
+                        DurationMs = stopwatch.Elapsed.TotalMilliseconds,
+                        ErrorPercentage = errorPercentage,
+                        TraceId = context.TraceIdentifier,
+                        IsError = requestFailed,
+                        CreatedAtUtc = DateTime.UtcNow
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogWarning(ex, "Failed to send telemetry to MonitoringService.");
+            }
+        }
+    }
+});
 
 app.UseExceptionHandler(errorApp =>
 {
@@ -168,3 +294,21 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
+
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromMilliseconds(200 * retryAttempt));
+}
+
+static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .AdvancedCircuitBreakerAsync(
+            failureThreshold: 0.7,
+            samplingDuration: TimeSpan.FromSeconds(30),
+            minimumThroughput: 10,
+            durationOfBreak: TimeSpan.FromSeconds(30));
+}

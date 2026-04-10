@@ -1,136 +1,161 @@
-// App.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
-import UserList from './components/UserList';
-import CreditsList from './components/CreditsList';
-import AccountTransactions from './components/AccountTransactions';
-import Login from './components/Login';
-import ProtectedRoute from './components/ProtectedRoute';
-import { isAuthenticated, logout } from './services/api';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { ThemeProvider } from './ThemeContext';
+import { Layout } from './features/layout/components/Layout';
+import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
+import { ErrorBoundary } from './shared/components/ErrorBoundary';
+import { LoadingScreen } from './shared/ui/LoadingScreen';
+import { NotFound } from './shared/ui/NotFound';
 
-// Компонент шапки с кнопкой выхода
-const Header = () => {
-  const navigate = useNavigate();
-  const authenticated = isAuthenticated();
+import Login from './features/auth/pages/Login';
+import { UserList } from './features/users/list/UserList';
+import { CreditsList } from './features/credits/list/CreditsList';
+import { MasterAccount } from './features/accounts/pages/MasterAccount';
+import { UserAccounts } from './features/accounts/list/UserAccounts';
+import { AccountTransactions } from './features/transactions/pages/AccountTransactions';
+import { SettingsPage } from './features/settings/pages/SettingsPage';
 
-  const handleLogout = () => {
-    logout(); // Удаляем токен из localStorage
-    navigate('/login'); // Перенаправляем на страницу входа
-  };
+import { useGlobalWebSocket } from './shared/hooks/useWebSocket';
 
-  if (!authenticated) return null; // Не показываем шапку, если пользователь не авторизован
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
+      cacheTime: 5 * 60 * 1000,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
+const WithLayout = ({ children }) => {
+  return <Layout>{children}</Layout>;
+};
+
+const ProtectedRouteWithLayout = ({ children }) => {
   return (
-    <header style={styles.header}>
-      <div style={styles.logo}>Bank System</div>
-      <div style={styles.navButtons}>
-        <button 
-          onClick={() => navigate('/users')} 
-          style={styles.navButton}
-        >
-          👥 Пользователи
-        </button>
-        <button 
-          onClick={() => navigate('/credits')} 
-          style={styles.navButton}
-        >
-          💳 Кредиты
-        </button>
-        <button 
-          onClick={handleLogout} 
-          style={styles.logoutButton}
-        >
-          🚪 Выйти
-        </button>
-      </div>
-    </header>
+    <ProtectedRoute>
+      <WithLayout>{children}</WithLayout>
+    </ProtectedRoute>
   );
+};
+
+const WebSocketInitializer = () => {
+  useGlobalWebSocket();
+  return null;
 };
 
 function App() {
+  const [isAppLoading, setIsAppLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        console.log('App initialized');
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  if (isAppLoading) {
+    return <LoadingScreen message="Загрузка приложения..." />;
+  }
+
   return (
-    <BrowserRouter>
-      <Header /> {/* 👈 Добавляем шапку с кнопкой выхода */}
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/users" element={
-          <ProtectedRoute>
-            <UserList />
-          </ProtectedRoute>
-        } />
-        <Route path="/credits" element={
-          <ProtectedRoute>
-            <CreditsList />
-          </ProtectedRoute>
-        } />
-        <Route path="/users/:userId" element={
-          <ProtectedRoute>
-            <UserList />
-          </ProtectedRoute>
-        } />
-        <Route path="/users/:userId/accounts/:accountId/transactions" element={
-          <ProtectedRoute>
-            <AccountTransactions />
-          </ProtectedRoute>
-        } />
-        <Route path="/" element={<Navigate to="/users" />} />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <BrowserRouter>
+            <WebSocketInitializer />
+            
+            <Routes>
+              {/* Корневой путь - обрабатывает токен из URL */}
+              <Route path="/" element={<Login />} />
+              
+              {/* Страница логина - тоже обрабатывает токен */}
+              <Route path="/login" element={<Login />} />
+              
+              {/* Защищенные маршруты */}
+              <Route
+                path="/users"
+                element={
+                  <ProtectedRouteWithLayout>
+                    <UserList />
+                  </ProtectedRouteWithLayout>
+                }
+              />
+              
+              <Route
+                path="/users/:userId"
+                element={
+                  <ProtectedRouteWithLayout>
+                    <UserAccounts />
+                  </ProtectedRouteWithLayout>
+                }
+              />
+              
+              <Route
+                path="/users/:userId/accounts/:accountId/transactions"
+                element={
+                  <ProtectedRouteWithLayout>
+                    <AccountTransactions />
+                  </ProtectedRouteWithLayout>
+                }
+              />
+              
+              <Route
+                path="/credits"
+                element={
+                  <ProtectedRouteWithLayout>
+                    <CreditsList />
+                  </ProtectedRouteWithLayout>
+                }
+              />
+              
+              <Route
+                path="/master-account"
+                element={
+                  <ProtectedRouteWithLayout>
+                    <MasterAccount />
+                  </ProtectedRouteWithLayout>
+                }
+              />
+              
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRouteWithLayout>
+                    <SettingsPage />
+                  </ProtectedRouteWithLayout>
+                }
+              />
+              
+              <Route
+                path="*"
+                element={
+                  <WithLayout>
+                    <NotFound />
+                  </WithLayout>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+          
+          {process.env.NODE_ENV === 'development' && (
+            <ReactQueryDevtools initialIsOpen={false} />
+          )}
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
-
-const styles = {
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '15px 30px',
-    backgroundColor: 'white',
-    borderBottom: '1px solid #e2e8f0',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 1000
-  },
-  logo: {
-    fontSize: '1.5em',
-    fontWeight: 'bold',
-    color: '#3b82f6'
-  },
-  navButtons: {
-    display: 'flex',
-    gap: '10px',
-    alignItems: 'center'
-  },
-  navButton: {
-    padding: '8px 16px',
-    backgroundColor: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    color: '#64748b',
-    cursor: 'pointer',
-    fontSize: '0.95em',
-    transition: 'all 0.2s',
-    ':hover': {
-      backgroundColor: '#f1f5f9',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
-    }
-  },
-  logoutButton: {
-    padding: '8px 16px',
-    backgroundColor: '#ef4444',
-    border: 'none',
-    borderRadius: '8px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '0.95em',
-    transition: 'background-color 0.2s',
-    ':hover': {
-      backgroundColor: '#dc2626'
-    }
-  }
-};
 
 export default App;

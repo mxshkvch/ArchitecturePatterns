@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCredits } from '../services/api';
 import CreditCard from './CreditCard';
 import LoadingSpinner from './LoadingSpinner';
+import { useTheme } from '../ThemeContext';
 
 const CreditsList = () => {
   const navigate = useNavigate();
@@ -10,11 +11,12 @@ const CreditsList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pageInfo, setPageInfo] = useState({
-    page: 1, // Оставляем 1 (1-индексация)
-    size: 5, // Размер страницы 5
+    page: 1,
+    size: 5,
     totalElements: 0,
     totalPages: 0
   });
+  const { isDarkMode } = useTheme();
 
   // Добавляем эффект для отладки
   useEffect(() => {
@@ -22,7 +24,7 @@ const CreditsList = () => {
   }, [pageInfo]);
 
   useEffect(() => {
-    loadCredits(1); // Загружаем первую страницу (индекс 1)
+    loadCredits(1);
   }, []);
 
   const loadCredits = async (page = 1) => {
@@ -34,21 +36,18 @@ const CreditsList = () => {
       console.log('Полученные данные кредитов:', data);
       
       if (data && data.content && data.page) {
-        // Формат Spring Page
         setCredits(data.content);
         
-        // Информация о пагинации находится в data.page
-        // API возвращает page с 0-индексацией, поэтому преобразуем
         setPageInfo({
-          page: data.page.page , // Преобразуем из 0-индексации в 1-индексацию
+          page: data.page.page,
           size: data.page.size,
           totalElements: data.page.totalElements,
           totalPages: data.page.totalPages
         });
         
         console.log('Установлены кредиты:', data.content.length);
-        console.log('Информация о пагинации (преобразована в 1-индексацию):', {
-          page: data.page.page ,
+        console.log('Информация о пагинации:', {
+          page: data.page.page,
           size: data.page.size,
           totalElements: data.page.totalElements,
           totalPages: data.page.totalPages
@@ -85,7 +84,7 @@ const CreditsList = () => {
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'RUB',
-      minimumFractionDigits: 2 // Меняем с 5 на 2 для нормального отображения
+      minimumFractionDigits: 2
     }).format(amount || 0);
   };
 
@@ -119,25 +118,49 @@ const CreditsList = () => {
     }
   };
 
-  if (loading && credits.length === 0) { // Меняем с === 1 на === 0
+  if (loading && credits.length === 0) {
     return <LoadingSpinner />;
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <button onClick={() => navigate('/users')} style={styles.backButton}>
+    <div style={{
+      ...styles.container,
+      backgroundColor: 'var(--bg-primary)'
+    }}>
+      <div style={{
+        ...styles.header,
+        backgroundColor: 'var(--card-bg)',
+        boxShadow: 'var(--shadow)'
+      }}>
+        <button 
+          onClick={() => navigate('/users')} 
+          style={styles.backButton}
+        >
           ← Назад к пользователям
         </button>
-        <h1 style={styles.title}>Список кредитов</h1>
-        <div style={styles.stats}>
-          Всего кредитов: <strong>{pageInfo.totalElements}</strong>
+        <h1 style={{
+          ...styles.title,
+          color: 'var(--text-color)'
+        }}>Список кредитов</h1>
+        <div style={{
+          ...styles.stats,
+          backgroundColor: 'var(--bg-secondary)',
+          color: 'var(--text-secondary)'
+        }}>
+          Всего кредитов: <strong style={{ color: 'var(--text-color)' }}>{pageInfo.totalElements}</strong>
         </div>
       </div>
 
       {error ? (
-        <div style={styles.errorContainer}>
-          <p style={styles.errorText}>{error}</p>
+        <div style={{
+          ...styles.errorContainer,
+          backgroundColor: 'var(--card-bg)',
+          boxShadow: 'var(--shadow)'
+        }}>
+          <p style={{
+            ...styles.errorText,
+            color: 'var(--error-color)'
+          }}>{error}</p>
           <button onClick={() => loadCredits(1)} style={styles.retryButton}>
             Попробовать снова
           </button>
@@ -145,8 +168,15 @@ const CreditsList = () => {
       ) : (
         <>
           {credits.length === 0 ? (
-            <div style={styles.emptyContainer}>
-              <p style={styles.emptyText}>Кредиты не найдены</p>
+            <div style={{
+              ...styles.emptyContainer,
+              backgroundColor: 'var(--card-bg)',
+              boxShadow: 'var(--shadow)'
+            }}>
+              <p style={{
+                ...styles.emptyText,
+                color: 'var(--text-secondary)'
+              }}>Кредиты не найдены</p>
             </div>
           ) : (
             <>
@@ -165,11 +195,20 @@ const CreditsList = () => {
 
               {/* Отображаем пагинацию только если есть несколько страниц */}
               {pageInfo.totalPages > 1 && (
-                <div style={styles.pagination}>
+                <div style={{
+                  ...styles.pagination,
+                  backgroundColor: 'var(--card-bg)',
+                  boxShadow: 'var(--shadow)'
+                }}>
                   <button
                     onClick={() => handlePageChange(pageInfo.page - 1)}
                     disabled={pageInfo.page === 1}
-                    style={styles.pageButton}
+                    style={{
+                      ...styles.pageButton,
+                      backgroundColor: 'var(--button-bg)',
+                      borderColor: 'var(--border-color)',
+                      color: 'var(--text-secondary)'
+                    }}
                   >
                     ←
                   </button>
@@ -182,6 +221,9 @@ const CreditsList = () => {
                         onClick={() => handlePageChange(pageNum)}
                         style={{
                           ...styles.pageNumberButton,
+                          backgroundColor: pageNum === pageInfo.page ? 'var(--primary-color)' : 'var(--button-bg)',
+                          borderColor: 'var(--border-color)',
+                          color: pageNum === pageInfo.page ? 'white' : 'var(--text-secondary)',
                           ...(pageNum === pageInfo.page ? styles.pageNumberButtonActive : {})
                         }}
                       >
@@ -193,7 +235,12 @@ const CreditsList = () => {
                   <button
                     onClick={() => handlePageChange(pageInfo.page + 1)}
                     disabled={pageInfo.page >= pageInfo.totalPages}
-                    style={styles.pageButton}
+                    style={{
+                      ...styles.pageButton,
+                      backgroundColor: 'var(--button-bg)',
+                      borderColor: 'var(--border-color)',
+                      color: 'var(--text-secondary)'
+                    }}
                   >
                     →
                   </button>
@@ -201,7 +248,11 @@ const CreditsList = () => {
               )}
 
               {/* Для отладки показываем информацию о пагинации */}
-              <div style={styles.debugInfo}>
+              <div style={{
+                ...styles.debugInfo,
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)'
+              }}>
                 Текущая страница: {pageInfo.page} из {pageInfo.totalPages}, 
                 Всего кредитов: {pageInfo.totalElements}, 
                 Кредитов на странице: {pageInfo.size}
@@ -220,8 +271,8 @@ const styles = {
     margin: '0 auto',
     padding: '30px 20px',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    backgroundColor: '#f8fafc',
-    minHeight: '100vh'
+    minHeight: '100vh',
+    transition: 'background-color 0.3s ease'
   },
   header: {
     display: 'flex',
@@ -229,37 +280,35 @@ const styles = {
     alignItems: 'center',
     marginBottom: '30px',
     padding: '20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   backButton: {
     padding: '8px 16px',
-    backgroundColor: '#f8fafc',
-    border: '1px solid #e2e8f0',
+    backgroundColor: 'var(--button-bg)',
+    border: '1px solid var(--border-color)',
     borderRadius: '8px',
-    color: '#64748b',
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
     fontSize: '0.95em',
     transition: 'all 0.2s',
     ':hover': {
-      backgroundColor: '#f1f5f9',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)',
+      color: 'var(--primary-color)'
     }
   },
   title: {
     margin: 0,
-    color: '#1e293b',
     fontSize: '2em',
-    fontWeight: '600'
+    fontWeight: '600',
+    transition: 'color 0.3s ease'
   },
   stats: {
-    color: '#64748b',
     fontSize: '1.1em',
     padding: '8px 16px',
-    backgroundColor: '#f1f5f9',
-    borderRadius: '8px'
+    borderRadius: '8px',
+    transition: 'all 0.3s ease'
   },
   creditsGrid: {
     display: 'grid',
@@ -274,9 +323,8 @@ const styles = {
     gap: '20px',
     marginTop: '30px',
     padding: '20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   pageNumbers: {
     display: 'flex',
@@ -284,17 +332,15 @@ const styles = {
   },
   pageButton: {
     padding: '8px 16px',
-    backgroundColor: 'white',
-    border: '1px solid #e2e8f0',
+    border: '1px solid',
     borderRadius: '8px',
-    color: '#64748b',
     cursor: 'pointer',
     fontSize: '1em',
     transition: 'all 0.2s',
     ':hover:not(:disabled)': {
-      backgroundColor: '#f8fafc',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)',
+      color: 'var(--primary-color)'
     },
     ':disabled': {
       opacity: 0.5,
@@ -305,48 +351,37 @@ const styles = {
     minWidth: '40px',
     height: '40px',
     padding: '0 8px',
-    border: '1px solid #e2e8f0',
+    border: '1px solid',
     borderRadius: '8px',
-    backgroundColor: 'white',
-    color: '#64748b',
     cursor: 'pointer',
     fontSize: '0.95em',
     transition: 'all 0.2s',
     ':hover': {
-      backgroundColor: '#f8fafc',
-      borderColor: '#3b82f6',
-      color: '#3b82f6'
+      backgroundColor: 'var(--button-hover-bg)',
+      borderColor: 'var(--primary-color)'
     }
   },
   pageNumberButtonActive: {
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    borderColor: '#3b82f6',
+    cursor: 'pointer',
     ':hover': {
-      backgroundColor: '#2563eb',
-      color: 'white',
-      borderColor: '#2563eb'
+      backgroundColor: 'var(--primary-hover)',
+      color: 'white'
     }
-  },
-  pageInfo: {
-    color: '#64748b',
-    fontSize: '1em'
   },
   errorContainer: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   errorText: {
-    color: '#ef4444',
     fontSize: '1.2em',
-    marginBottom: '20px'
+    marginBottom: '20px',
+    transition: 'color 0.3s ease'
   },
   retryButton: {
     padding: '12px 24px',
-    backgroundColor: '#3b82f6',
+    backgroundColor: 'var(--primary-color)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -355,28 +390,26 @@ const styles = {
     fontWeight: '500',
     transition: 'background-color 0.2s',
     ':hover': {
-      backgroundColor: '#2563eb'
+      backgroundColor: 'var(--primary-hover)'
     }
   },
   emptyContainer: {
     textAlign: 'center',
     padding: '60px 20px',
-    backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+    transition: 'all 0.3s ease'
   },
   emptyText: {
-    color: '#64748b',
-    fontSize: '1.2em'
+    fontSize: '1.2em',
+    transition: 'color 0.3s ease'
   },
   debugInfo: {
     marginTop: '20px',
     padding: '10px',
-    backgroundColor: '#f1f5f9',
     borderRadius: '8px',
-    color: '#64748b',
     fontSize: '0.9em',
-    textAlign: 'center'
+    textAlign: 'center',
+    transition: 'all 0.3s ease'
   }
 };
 

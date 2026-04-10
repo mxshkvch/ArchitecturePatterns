@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { updateUserStatus } from '../services/api';
+import RatingModal from './RatingModal';
 
 const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChange }) => {
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  
   const currentUser = useMemo(() => {
     try {
       const userStr = localStorage.getItem('user');
@@ -17,6 +19,10 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
     }
   }, []);
 
+  const handleRatingClick = (e) => {
+    e.stopPropagation();
+    setShowRatingModal(true);
+  };
 
   const isCurrentUserNewEmployee = useMemo(() => {
     if (!currentUser) return false;
@@ -32,14 +38,11 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
     return accountAge < oneDayInMs;
   }, [currentUser]);
 
-  // Функция для проверки, является ли пользователь новым сотрудником/администратором (< 1 дня)
   const isNewEmployeeOrAdmin = useMemo(() => {
-    // Проверяем, что пользователь сотрудник или администратор
     const isEmployeeOrAdmin = user.role === 'EMPLOYEE' || user.role === 'ADMIN';
     
     if (!isEmployeeOrAdmin) return false;
     
-    // Проверяем, что аккаунту меньше 1 дня
     const accountCreationDate = new Date(user.createdAt);
     const now = new Date();
     const oneDayInMs = 24 * 60 * 60 * 1000;
@@ -48,7 +51,6 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
     return accountAge < oneDayInMs;
   }, [user.role, user.createdAt]);
 
-  
   const shouldShowButtons = useMemo(() => {
     if (isCurrentUserNewEmployee) {
       return false;
@@ -87,8 +89,6 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
     }
   };
 
-  
-
   const handleConfirmBlock = () => {
     updateStatus('BLOCKED');
   };
@@ -101,17 +101,16 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
   const isBlocked = user.status === 'BLOCKED';
   const isActive = user.status === 'ACTIVE';
 
-  // Определяем текст и стиль для кнопки в зависимости от текущего статуса
   const getButtonConfig = () => {
     if (isBlocked) {
       return {
-        text: isUpdating ? '⏳' : '🔓 Разблокировать',
+        text: isUpdating ? '⏳' : '🔓 ',
         bgColor: '#10b981',
         title: 'Разблокировать пользователя'
       };
     } else {
       return {
-        text: isUpdating ? '⏳' : '🔒 Заблокировать',
+        text: isUpdating ? '⏳' : '🔒 ',
         bgColor: '#ef4444',
         title: 'Заблокировать пользователя'
       };
@@ -121,114 +120,129 @@ const UserCard = ({ user, formatDate, getStatusColor, getRoleLabel, onStatusChan
   const buttonConfig = getButtonConfig();
 
   return (
-    <div style={styles.card} onClick={handleCardClick}>
-      <div style={styles.cardHeader}>
-        <div style={styles.avatar}>
-          {user.firstName?.[0]}{user.lastName?.[0]}
-        </div>
-        <div style={styles.userInfo}>
-          <h3 style={styles.userName}>
-            {user.firstName} {user.lastName}
-          </h3>
-          <p style={styles.userEmail}>{user.email}</p>
-        </div>
-        
-        {/* Отображаем кнопку только если должныShowButtons и статус позволяет */}
-        {shouldShowButtons && (isActive || isBlocked) && (
+    <>
+      <div style={styles.card} onClick={handleCardClick}>
+        <div style={styles.cardHeader}>
+          <div style={styles.avatar}>
+            {user.firstName?.[0]}{user.lastName?.[0]}
+          </div>
+          <div style={styles.userInfo}>
+            <h3 style={styles.userName}>
+              {user.firstName} {user.lastName}
+            </h3>
+            <p style={styles.userEmail}>{user.email}</p>
+          </div>
+          
           <button
-            onClick={handleStatusToggle}
-            disabled={isUpdating}
-            style={{
-              ...styles.statusButton,
-              backgroundColor: buttonConfig.bgColor,
-              opacity: isUpdating ? 0.5 : 1,
-              cursor: isUpdating ? 'wait' : 'pointer'
-            }}
-            title={buttonConfig.title}
+            onClick={handleRatingClick}
+            style={styles.ratingButton}
+            title="Посмотреть кредитный рейтинг"
           >
-            {buttonConfig.text}
+            📊
           </button>
-        )}
-      </div>
+          
+          {shouldShowButtons && (isActive || isBlocked) && (
+            <button
+              onClick={handleStatusToggle}
+              disabled={isUpdating}
+              style={{
+                ...styles.statusButton,
+                backgroundColor: buttonConfig.bgColor,
+                opacity: isUpdating ? 0.5 : 1,
+                cursor: isUpdating ? 'wait' : 'pointer'
+              }}
+              title={buttonConfig.title}
+            >
+              {buttonConfig.text}
+            </button>
+          )}
+        </div>
 
-      <div style={styles.cardBody}>
-        {user.phone && (
+        <div style={styles.cardBody}>
+          {user.phone && (
+            <div style={styles.infoRow}>
+              <span style={styles.infoLabel}>📞 Телефон:</span>
+              <span style={styles.infoValue}>{user.phone}</span>
+            </div>
+          )}
+          
           <div style={styles.infoRow}>
-            <span style={styles.infoLabel}>📞 Телефон:</span>
-            <span style={styles.infoValue}>{user.phone}</span>
+            <span style={styles.infoLabel}>👤 Роль:</span>
+            <span style={{
+              ...styles.roleBadge,
+              backgroundColor: user.role === 'ADMIN' ? '#fee2e2' : 
+                             user.role === 'EMPLOYEE' ? '#dbeafe' : '#dcfce7',
+              color: user.role === 'ADMIN' ? '#991b1b' : 
+                     user.role === 'EMPLOYEE' ? '#1e40af' : '#166534'
+            }}>
+              {getRoleLabel(user.role)}
+            </span>
           </div>
-        )}
-        
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>👤 Роль:</span>
-          <span style={{
-            ...styles.roleBadge,
-            backgroundColor: user.role === 'ADMIN' ? '#fee2e2' : 
-                           user.role === 'EMPLOYEE' ? '#dbeafe' : '#dcfce7',
-            color: user.role === 'ADMIN' ? '#991b1b' : 
-                   user.role === 'EMPLOYEE' ? '#1e40af' : '#166534'
-          }}>
-            {getRoleLabel(user.role)}
-          </span>
-        </div>
 
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>⚡ Статус:</span>
-          <span style={{
-            ...styles.statusBadge,
-            backgroundColor: getStatusColor(user.status) + '20',
-            color: getStatusColor(user.status)
-          }}>
-            {user.status === 'ACTIVE' ? 'Активен' :
-             user.status === 'INACTIVE' ? 'Неактивен' : 'Заблокирован'}
-          </span>
-        </div>
-
-        <div style={styles.infoRow}>
-          <span style={styles.infoLabel}>📅 Создан:</span>
-          <span style={styles.infoValue}>{formatDate(user.createdAt)}</span>
-        </div>
-
-        {/* Для отладки - показываем иконку для новых сотрудников/админов */}
-        {isNewEmployeeOrAdmin && (
-          <div style={styles.newBadge}>
-            🆕 Новый сотрудник (менее 1 дня)
+          <div style={styles.infoRow}>
+            <span style={styles.infoLabel}>⚡ Статус:</span>
+            <span style={{
+              ...styles.statusBadge,
+              backgroundColor: getStatusColor(user.status) + '20',
+              color: getStatusColor(user.status)
+            }}>
+              {user.status === 'ACTIVE' ? 'Активен' :
+               user.status === 'INACTIVE' ? 'Неактивен' : 'Заблокирован'}
+            </span>
           </div>
-        )}
-      </div>
 
-      <div style={styles.cardFooter}>
-        <span style={styles.viewDetails}>Просмотреть детали →</span>
-      </div>
+          <div style={styles.infoRow}>
+            <span style={styles.infoLabel}>📅 Создан:</span>
+            <span style={styles.infoValue}>{formatDate(user.createdAt)}</span>
+          </div>
 
-      {/* Диалог подтверждения блокировки */}
-      {showConfirm && (
-        <div style={styles.confirmOverlay} onClick={(e) => e.stopPropagation()}>
-          <div style={styles.confirmDialog}>
-            <h4 style={styles.confirmTitle}>Подтверждение блокировки</h4>
-            <p style={styles.confirmText}>
-              Вы уверены, что хотите заблокировать пользователя <strong>{user.firstName} {user.lastName}</strong>?
-            </p>
-            <div style={styles.confirmButtons}>
-              <button 
-                onClick={handleCancelBlock}
-                style={styles.cancelButton}
-                disabled={isUpdating}
-              >
-                Отмена
-              </button>
-              <button 
-                onClick={handleConfirmBlock}
-                style={styles.confirmButton}
-                disabled={isUpdating}
-              >
-                {isUpdating ? 'Блокировка...' : 'Заблокировать'}
-              </button>
+          {isNewEmployeeOrAdmin && (
+            <div style={styles.newBadge}>
+              🆕 Новый сотрудник (менее 1 дня)
+            </div>
+          )}
+        </div>
+
+        <div style={styles.cardFooter}>
+          <span style={styles.viewDetails}>Просмотреть детали →</span>
+        </div>
+
+        {showConfirm && (
+          <div style={styles.confirmOverlay} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.confirmDialog}>
+              <h4 style={styles.confirmTitle}>Подтверждение блокировки</h4>
+              <p style={styles.confirmText}>
+                Вы уверены, что хотите заблокировать пользователя <strong>{user.firstName} {user.lastName}</strong>?
+              </p>
+              <div style={styles.confirmButtons}>
+                <button 
+                  onClick={handleCancelBlock}
+                  style={styles.cancelButton}
+                  disabled={isUpdating}
+                >
+                  Отмена
+                </button>
+                <button 
+                  onClick={handleConfirmBlock}
+                  style={styles.confirmButton}
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? 'Блокировка...' : 'Заблокировать'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      {/* RatingModal вынесен за пределы карточки */}
+      <RatingModal
+        isOpen={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        userId={user.id}
+        userName={`${user.firstName} ${user.lastName}`}
+      />
+    </>
   );
 };
 
@@ -283,6 +297,23 @@ const styles = {
     color: '#64748b',
     fontSize: '0.9em'
   },
+  ratingButton: {
+    padding: '6px 12px',
+    backgroundColor: '#8b5cf6',
+    border: 'none',
+    borderRadius: '6px',
+    color: 'white',
+    fontSize: '0.85em',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    whiteSpace: 'nowrap',
+    marginRight: '8px',
+    ':hover': {
+      backgroundColor: '#7c3aed',
+      transform: 'translateY(-1px)'
+    }
+  },
   statusButton: {
     padding: '6px 12px',
     border: 'none',
@@ -333,7 +364,14 @@ const styles = {
     textAlign: 'right',
     color: '#3b82f6',
     fontSize: '0.9em',
-    fontWeight: '500'
+    fontWeight: '500',
+    marginTop: '10px'
+  },
+  viewDetails: {
+    cursor: 'pointer',
+    ':hover': {
+      textDecoration: 'underline'
+    }
   },
   newBadge: {
     marginTop: '8px',

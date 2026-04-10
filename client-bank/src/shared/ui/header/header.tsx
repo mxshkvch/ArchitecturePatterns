@@ -4,12 +4,12 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useTheme } from "../../lib/provider/themeProvider";
 
 export const Header = () => {
-  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
 
   const handleLogout = () => {
     localStorage.removeItem("accessToken");
-    navigate("/login");
+    window.location.href = 'http://localhost:5175/login';
+
   };
 
   return (
