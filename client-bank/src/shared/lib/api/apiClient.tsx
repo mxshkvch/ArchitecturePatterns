@@ -1,4 +1,7 @@
 import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import { generateTraceId } from "../monitoring/trace";
+import { sendMonitoringLog } from "../monitoring/sendLog";
+import { updateMetrics, getErrorPercentage } from "../monitoring/metrics";
 
 const apiClient = axios.create();
 
@@ -22,10 +25,18 @@ const getBackoffDelay = (attempt: number) =>
 
 const requestWithRetry = async (
   config: AxiosRequestConfig,
+  traceId: string,
   retries = MAX_RETRIES
 ): Promise<any> => {
   try {
-    const response = await apiClient(config);
+    const response = await apiClient({
+      ...config,
+      headers: {
+        ...config.headers,
+        "x-trace-id": traceId,
+      },
+    });
+
     successCount++;
     return response;
   } catch (error) {
@@ -45,7 +56,7 @@ const requestWithRetry = async (
 
       await delay(getBackoffDelay(attempt));
 
-      return requestWithRetry(config, retries - 1);
+      return requestWithRetry(config, traceId, retries - 1);
     }
 
     failureCount++;
@@ -55,6 +66,9 @@ const requestWithRetry = async (
 
 export const safeRequest = async (config: AxiosRequestConfig) => {
   const key = getKey(config);
+  const traceId = generateTraceId();
+
+  const start = performance.now();
 
   if (pendingRequests.has(key)) {
     return pendingRequests.get(key)!;
@@ -67,9 +81,40 @@ export const safeRequest = async (config: AxiosRequestConfig) => {
   }
 
   const promise = (async () => {
+    let response: any;
+    let error: any;
+
     try {
-      return await requestWithRetry(config);
+      response = await requestWithRetry(config, traceId);
+      return response;
+    } catch (e) {
+      error = e;
+      throw e;
     } finally {
+      const durationMs = Math.round(performance.now() - start);
+
+      const statusCode =
+        response?.status ?? error?.response?.status ?? 0;
+
+      const isError = !!error;
+
+      const metricKey = `${config.method?.toUpperCase()}:${config.url}`;
+      updateMetrics(metricKey, isError);
+
+      const errorPercentage = getErrorPercentage(metricKey);
+
+      sendMonitoringLog({
+        serviceName: "client-bank",
+        method: config.method?.toUpperCase(),
+        path: config.url,
+        statusCode,
+        durationMs,
+        errorPercentage,
+        traceId,
+        isError,
+        createdAtUtc: new Date().toISOString(),
+      });
+
       pendingRequests.delete(key);
     }
   })();
