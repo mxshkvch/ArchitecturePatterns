@@ -11,7 +11,19 @@ builder.Services.AddOpenApiDocument(options =>
     options.Description = "Stores and provides request tracing telemetry from backend services.";
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+app.UseCors("AllowAll");
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new ArgumentException("ConnectionStrings:DefaultConnection cannot be null");
 
