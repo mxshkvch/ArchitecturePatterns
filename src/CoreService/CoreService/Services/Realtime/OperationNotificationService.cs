@@ -5,10 +5,14 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace CoreService.Services.Realtime;
 
-public sealed class OperationNotificationService(IHubContext<OperationsHub> hubContext) : IOperationNotificationService
+public sealed class OperationNotificationService(
+    IHubContext<OperationsHub> hubContext,
+    IFirebasePushNotificationService firebasePushNotificationService,
+    ILogger<OperationNotificationService> logger) : IOperationNotificationService
 {
     public async Task NotifyOperationInvalidatedAsync(AccountOperationMessage message, CancellationToken cancellationToken)
     {
+        var occurredAt = DateTimeOffset.UtcNow;
         var payload = new
         {
             type = "operation_invalidation",
@@ -21,15 +25,24 @@ public sealed class OperationNotificationService(IHubContext<OperationsHub> hubC
             targetUserId = message.TargetUserId,
             amount = message.Amount,
             createdAt = message.CreatedAt,
-            occurredAt = DateTimeOffset.UtcNow
+            occurredAt
         };
 
-        await hubContext.Clients.Group($"user:{message.UserId}").SendAsync("operationUpdated", payload, cancellationToken);
-        await hubContext.Clients.Group("employees").SendAsync("operationUpdated", payload, cancellationToken);
-
-        if (message.TargetUserId.HasValue && message.TargetUserId.Value != message.UserId)
+        try
         {
-            await hubContext.Clients.Group($"user:{message.TargetUserId.Value}").SendAsync("operationUpdated", payload, cancellationToken);
+            await hubContext.Clients.Group($"user:{message.UserId}").SendAsync("operationUpdated", payload, cancellationToken);
+            await hubContext.Clients.Group("employees").SendAsync("operationUpdated", payload, cancellationToken);
+
+            if (message.TargetUserId.HasValue && message.TargetUserId.Value != message.UserId)
+            {
+                await hubContext.Clients.Group($"user:{message.TargetUserId.Value}").SendAsync("operationUpdated", payload, cancellationToken);
+            }
         }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Failed to deliver SignalR operation notification for operation {OperationId}", message.OperationId);
+        }
+
+        await firebasePushNotificationService.NotifyOperationUpdatedAsync(message, occurredAt, cancellationToken);
     }
 }

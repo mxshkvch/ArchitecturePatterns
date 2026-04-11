@@ -122,6 +122,8 @@ if (monitoringEnabled)
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
+builder.Services.Configure<FirebasePushOptions>(builder.Configuration.GetSection("FirebasePush"));
+builder.Services.AddSingleton<IFirebasePushNotificationService, FirebasePushNotificationService>();
 builder.Services.AddSingleton<IOperationNotificationService, OperationNotificationService>();
 builder.Services.AddMemoryCache();
 builder.Services.Configure<ExchangeRateOptions>(builder.Configuration.GetSection("ExchangeRates"));
