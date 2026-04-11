@@ -151,6 +151,9 @@ namespace CoreService.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("OperationId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("timestamp with time zone");
 
@@ -158,6 +161,10 @@ namespace CoreService.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OperationId", "AccountId")
+                        .IsUnique()
+                        .HasFilter("\"OperationId\" IS NOT NULL");
 
                     b.ToTable("Transactions");
                 });

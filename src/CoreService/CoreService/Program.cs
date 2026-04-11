@@ -76,6 +76,21 @@ builder.Services.AddAuthentication(x =>
     {
         x.RequireHttpsMetadata = false;
         x.SaveToken = true;
+        x.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/operations"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
         x.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -107,6 +122,8 @@ if (monitoringEnabled)
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
+builder.Services.Configure<FirebasePushOptions>(builder.Configuration.GetSection("FirebasePush"));
+builder.Services.AddSingleton<IFirebasePushNotificationService, FirebasePushNotificationService>();
 builder.Services.AddSingleton<IOperationNotificationService, OperationNotificationService>();
 builder.Services.AddMemoryCache();
 builder.Services.Configure<ExchangeRateOptions>(builder.Configuration.GetSection("ExchangeRates"));

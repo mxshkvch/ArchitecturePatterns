@@ -51,6 +51,12 @@ services:
       - RabbitMq__UserName=guest
       - RabbitMq__Password=guest
       - RabbitMq__QueueName=core.account.operations
+      - FirebasePush__Enabled=true
+      - FirebasePush__ProjectId=architecturepatterns-d92c3
+      - FirebasePush__CredentialsFilePath=/app/secrets/firebase-service-account.json
+      - FirebasePush__CredentialsJson=
+      - FirebasePush__ClientTopicPrefix=user-
+      - FirebasePush__StaffTopic=employees
       - Services__MonitoringServiceUrl=http://monitoringservice:8080/
     depends_on:
       postgres:
