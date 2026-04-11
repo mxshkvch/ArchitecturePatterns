@@ -20,6 +20,7 @@ RUN dotnet publish "CoreService.csproj" -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final
 WORKDIR /app
 COPY --from=build /app/publish .
+COPY architecturepatterns-d92c3-firebase-adminsdk-fbsvc-54adf1e762.json /app/secrets/firebase-service-account.json
 RUN echo '#!/bin/bash' > entrypoint.sh && \
     echo './efbundle --connection "$ConnectionStrings__DefaultConnection"' >> entrypoint.sh && \
     echo 'exec dotnet CoreService.dll' >> entrypoint.sh && \
