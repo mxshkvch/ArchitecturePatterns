@@ -5,6 +5,8 @@ using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddOpenApiDocument(options =>
 {
     options.Title = "MonitoringService API";

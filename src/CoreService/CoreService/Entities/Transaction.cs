@@ -5,6 +5,7 @@ namespace CoreService.Entities;
 public class Transaction
 {
     public Guid Id { get; set; }
+    public Guid? OperationId { get; set; }
     public Guid AccountId { get; set; }
     public TransactionType Type { get; set; }
     public decimal Amount { get; set; }
