@@ -11,7 +11,19 @@ builder.Services.AddOpenApiDocument(options =>
     options.Description = "Stores and provides request tracing telemetry from backend services.";
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+app.UseCors("AllowAll");
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new ArgumentException("ConnectionStrings:DefaultConnection cannot be null");
 
@@ -52,6 +64,43 @@ app.MapPost("/api/monitoring/logs", async (MonitoringLogRequest request) =>
     });
 
     return Results.StatusCode((int)HttpStatusCode.Accepted);
+});
+
+app.MapGet("/api/monitoring/metrics", async () =>
+{
+    await using var connection = new NpgsqlConnection(connectionString);
+
+    const string sql = @"
+        WITH last_logs AS (
+            SELECT *
+            FROM monitoring.request_logs
+            ORDER BY created_at_utc DESC
+            LIMIT 100
+        )
+        SELECT
+            COUNT(*) AS TotalRequests,
+            SUM(CASE WHEN is_error THEN 1 ELSE 0 END) AS ErrorCount,
+            AVG(duration_ms) AS AvgDurationMs,
+            MAX(duration_ms) AS MaxDurationMs,
+            MIN(duration_ms) AS MinDurationMs
+        FROM last_logs;
+    ";
+
+    var result = await connection.QuerySingleAsync<MonitoringMetrics>(sql);
+
+    var errorPercentage = result.TotalRequests == 0
+        ? 0
+        : (double)result.ErrorCount / result.TotalRequests * 100;
+
+    return Results.Ok(new
+    {
+        result.TotalRequests,
+        result.ErrorCount,
+        ErrorPercentage = errorPercentage,
+        result.AvgDurationMs,
+        result.MaxDurationMs,
+        result.MinDurationMs
+    });
 });
 
 app.MapGet("/api/monitoring/logs", async (int limit = 100) =>
@@ -164,4 +213,13 @@ public sealed class MonitoringStatItem
     public long FailedRequests { get; init; }
     public double AvgDurationMs { get; init; }
     public double MaxDurationMs { get; init; }
+}
+
+public sealed class MonitoringMetrics
+{
+    public long TotalRequests { get; init; }
+    public long ErrorCount { get; init; }
+    public double AvgDurationMs { get; init; }
+    public double MaxDurationMs { get; init; }
+    public double MinDurationMs { get; init; }
 }

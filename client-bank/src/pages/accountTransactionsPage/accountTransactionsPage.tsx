@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Container } from "react-bootstrap";
 import { useTheme } from "../../shared/lib/provider/themeProvider";
@@ -11,68 +11,70 @@ import { createConnection } from "../../shared/lib/ws/signalR";
 
 export const AccountTransactionsPage = () => {
   const { accountId } = useParams<{ accountId: string }>();
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const pageSize = 6;
 
+  const pageSize = 6;
   const { theme } = useTheme();
 
-  const refreshTransactions = () => {
+  const refreshTransactions = useCallback(() => {
+    if (!accountId) return;
+
     setLoading(true);
-    fetchTransactionsForAccount(accountId!, currentPage, pageSize)
+
+    fetchTransactionsForAccount(accountId, currentPage, pageSize)
       .then(({ transactions, totalPages }) => {
         setTransactions(transactions);
         setTotalPages(totalPages);
       })
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    if (!accountId) return;
-    refreshTransactions();
   }, [accountId, currentPage]);
 
   useEffect(() => {
-  if (!accountId) return;
+    refreshTransactions();
+  }, [refreshTransactions]);
 
-  const token = localStorage.getItem("accessToken");
-  if (!token) return;
+  useEffect(() => {
+    if (!accountId) return;
 
-  const connection = createConnection(token);
-  let timeout: ReturnType<typeof setTimeout>;
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
 
-  connection.start().then(() => {
-    console.log("WS connected");
+    const connection = createConnection(token);
 
-    connection.on("operationUpdated", (message) => {
-      console.log("WS event:", message);
+    let timeout: ReturnType<typeof setTimeout>;
 
-      if (
-        message.type === "operation_invalidation" &&
-        (message.accountId === accountId || message.targetAccountId === accountId)
-      ) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-          setLoading(true);
-          fetchTransactionsForAccount(accountId, currentPage, pageSize)
-            .then(({ transactions, totalPages }) => {
-              setTransactions(transactions);
-              setTotalPages(totalPages);
-            })
-            .finally(() => setLoading(false));
-        }, 300);
-      }
-    });
-  }).catch(err => {
-    console.error("Failed to start WS connection:", err);
-  });
+    connection
+      .start()
+      .then(() => {
+        console.log("WS connected");
 
-  return () => {
-    connection.stop();
-  };
-}, [accountId]);
+        connection.on("operationUpdated", (message: any) => {
+          if (
+            message.type === "operation_invalidation" &&
+            (message.accountId === accountId ||
+              message.targetAccountId === accountId)
+          ) {
+            clearTimeout(timeout);
+
+            timeout = setTimeout(() => {
+              refreshTransactions();
+            }, 300);
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to start WS connection:", err);
+      });
+
+    return () => {
+      clearTimeout(timeout);
+      connection.stop();
+    };
+  }, [accountId, refreshTransactions]);
 
   return (
     <Container className="py-5">
@@ -83,6 +85,7 @@ export const AccountTransactionsPage = () => {
       ) : (
         <>
           <TransactionTable transactions={transactions} theme={theme} />
+
           <PaginationComponent
             currentPage={currentPage}
             totalPages={totalPages}

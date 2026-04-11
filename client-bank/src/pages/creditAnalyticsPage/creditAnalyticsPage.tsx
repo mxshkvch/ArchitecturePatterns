@@ -26,8 +26,11 @@ export const CreditAnalyticsPage = () => {
   const pageSize = 6;
 
   useEffect(() => {
+    setLoadingRating(true);
+
     fetchCreditRating()
       .then(setRating)
+      .catch(() => setRating(null))
       .finally(() => setLoadingRating(false));
   }, []);
 
@@ -38,6 +41,10 @@ export const CreditAnalyticsPage = () => {
       .then(({ delinquencies, totalPages }) => {
         setDelinquencies(delinquencies);
         setTotalPages(totalPages);
+      })
+      .catch(() => {
+        setDelinquencies([]);
+        setTotalPages(0);
       })
       .finally(() => setLoadingDelinq(false));
   }, [currentPage]);

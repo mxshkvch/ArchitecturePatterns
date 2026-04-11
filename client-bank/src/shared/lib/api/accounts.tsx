@@ -1,4 +1,4 @@
-import axios from "axios";
+import { safeRequest } from "./apiClient";
 
 export type AccountStatus = "ACTIVE" | "CLOSED";
 
@@ -22,8 +22,6 @@ export interface AccountsResponse {
     totalPages: number;
   };
 }
-
-
 
 export interface CreateAccountRequest {
   Currency: "RUB" | "USD" | "EUR";
@@ -52,8 +50,6 @@ export interface TransferResponse {
   toAccount: Account;
 }
 
-
-
 const API_BASE = "http://89.23.105.66:5000/api";
 
 const getAuthHeaders = (): { Authorization: string } => {
@@ -64,63 +60,87 @@ const getAuthHeaders = (): { Authorization: string } => {
 
 
 
-export const fetchAccounts = async (page: number, size: number): Promise<AccountsResponse> => {
-  const res = await axios.get<AccountsResponse>(`${API_BASE}/accounts`, {
+export const fetchAccounts = async (page: number, size: number) => {
+  const res = await safeRequest({
+    method: "GET",
+    url: `${API_BASE}/accounts`,
     params: { page, size },
     headers: getAuthHeaders(),
   });
+
   return res.data;
 };
 
-export const fetchAllAccounts = async (): Promise<Account[]> => {
-  const res = await axios.get<AccountsResponse>(`${API_BASE}/accounts`, {
+export const fetchAllAccounts = async () => {
+  const res = await safeRequest({
+    method: "GET",
+    url: `${API_BASE}/accounts`,
     params: { page: 0, size: 1000 },
     headers: getAuthHeaders(),
   });
+
   return res.data.content;
 };
 
-export const createAccount = async (currency: "RUB" | "USD" | "EUR", initialDeposit: number): Promise<CreateAccountResponse> => {
-  const req: CreateAccountRequest = { Currency: currency, InitialDeposit: initialDeposit };
-  const res = await axios.post<CreateAccountResponse>(`${API_BASE}/accounts`, req, {
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+export const createAccount = async (currency: "RUB" | "USD" | "EUR", initialDeposit: number) => {
+  const res = await safeRequest({
+    method: "POST",
+    url: `${API_BASE}/accounts`,
+    data: {
+      Currency: currency,
+      InitialDeposit: initialDeposit,
+    },
+    headers: {"Content-Type": "application/json", ...getAuthHeaders(),},
   });
+
   return res.data;
 };
 
-export const depositToAccount = async (accountId: string, amount: number, description = ""): Promise<DepositWithdrawResponse> => {
-  const req: DepositWithdrawRequest = { Amount: amount, Description: description };
-  const res = await axios.post<DepositWithdrawResponse>(
-    `${API_BASE}/accounts/${accountId}/deposit`,
-    req,
-    { headers: { "Content-Type": "application/json", ...getAuthHeaders() } }
-  );
+export const depositToAccount = async (accountId: string, amount: number) => {
+  const res = await safeRequest({
+    method: "POST",
+    url: `${API_BASE}/accounts/${accountId}/deposit`,
+    data: {
+      Amount: amount,
+    },
+    headers: {"Content-Type": "application/json",...getAuthHeaders(),},
+  });
+
   return res.data;
 };
 
-export const withdrawFromAccount = async (accountId: string, amount: number, description = ""): Promise<DepositWithdrawResponse> => {
-  const req: DepositWithdrawRequest = { Amount: amount, Description: description };
-  const res = await axios.post<DepositWithdrawResponse>(
-    `${API_BASE}/accounts/${accountId}/withdraw`,
-    req,
-    { headers: { "Content-Type": "application/json", ...getAuthHeaders() } }
-  );
+export const withdrawFromAccount = async (accountId: string, amount: number) => {
+  const res = await safeRequest({
+    method: "POST",
+    url: `${API_BASE}/accounts/${accountId}/withdraw`,
+    data: {
+      Amount: amount,
+    },
+    headers: {"Content-Type": "application/json", ...getAuthHeaders(),},
+  });
+
   return res.data;
 };
 
-export const closeAccount = async (accountId: string): Promise<Account> => {
-  const res = await axios.delete<Account>(`${API_BASE}/accounts/${accountId}`, {
+export const closeAccount = async (accountId: string) => {
+  const res = await safeRequest({
+    method: "DELETE",
+    url: `${API_BASE}/accounts/${accountId}`,
     headers: getAuthHeaders(),
   });
+
   return res.data;
 };
 
-export const transferBetweenAccounts = async (fromAccountId: string, toAccountId: string, amount: number): Promise<TransferResponse> => {
-  const req: TransferRequest = { amountMoney: amount };
-  const res = await axios.post<TransferResponse>(
-    `${API_BASE}/accounts/${fromAccountId}/transfer/${toAccountId}`,
-    req,
-    { headers: { "Content-Type": "application/json", ...getAuthHeaders() } }
-  );
+export const transferBetweenAccounts = async (fromId: string, toId: string, amount: number) => {
+  const res = await safeRequest({
+    method: "POST",
+    url: `${API_BASE}/accounts/${fromId}/transfer/${toId}`,
+    data: {
+      amountMoney: amount,
+    },
+    headers: {"Content-Type": "application/json",...getAuthHeaders(),},
+  });
+
   return res.data;
 };

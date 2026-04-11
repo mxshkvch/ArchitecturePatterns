@@ -1,4 +1,4 @@
-import axios from "axios";
+import { safeRequest } from "./apiClient";
 
 export type Transaction = {
   id: string;
@@ -22,16 +22,15 @@ export type TransactionsResponse = {
 
 const API_BASE = "http://89.23.105.66:5000/api";
 
-export const getTransactions = async ( accountId: string, page: number, size: number ): Promise<TransactionsResponse> => {
-  const token = localStorage.getItem("accessToken");
-  const response = await axios.get<TransactionsResponse>(
-    `${API_BASE}/accounts/${accountId}/transactions`,
-    {
-      params: { page, size },
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    }
-  );
-  return response.data;
+export const getTransactions = async ( accountId: string, page: number, size: number): Promise<TransactionsResponse> => {
+  const res = await safeRequest({
+    method: "GET",
+    url: `${API_BASE}/accounts/${accountId}/transactions`,
+    params: { page, size },
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("accessToken") || ""}`,
+    },
+  });
+
+  return res.data;
 };
