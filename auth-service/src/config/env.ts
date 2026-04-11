@@ -8,7 +8,7 @@ export const config = {
   redirectUri: 'http://localhost:3000/callback',
   clientBankClientId: 'client-bank',
   staffServiceClientId: 'staff-service',
-  clientBankUrl:  'http://localhost:5174',
+  clientBankUrl:  'http://localhost:5175',
   staffServiceUrl:  'http://localhost:5173'
 };
 
