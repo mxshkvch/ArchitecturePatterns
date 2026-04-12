@@ -105,9 +105,13 @@ app.MapGet("/api/monitoring/metrics", async () =>
     });
 });
 
-app.MapGet("/api/monitoring/logs", async (int limit = 100) =>
+app.MapGet("/api/monitoring/logs", async (int page = 1, int pageSize = 100) =>
 {
-    var boundedLimit = Math.Clamp(limit, 1, 1000);
+    var boundedPageSize = Math.Clamp(pageSize, 1, 1000);
+    var boundedPage = Math.Max(page, 1);
+
+    var offset = (boundedPage - 1) * boundedPageSize;
+
     await using var connection = new NpgsqlConnection(connectionString);
 
     const string sql = @"
@@ -123,10 +127,20 @@ app.MapGet("/api/monitoring/logs", async (int limit = 100) =>
                created_at_utc AS CreatedAtUtc
         FROM monitoring.request_logs
         ORDER BY created_at_utc DESC
-        LIMIT @Limit;";
+        LIMIT @Limit OFFSET @Offset;";
 
-    var logs = await connection.QueryAsync<MonitoringLogItem>(sql, new { Limit = boundedLimit });
-    return Results.Ok(logs);
+    var logs = await connection.QueryAsync<MonitoringLogItem>(sql, new
+    {
+        Limit = boundedPageSize,
+        Offset = offset
+    });
+
+    return Results.Ok(new
+    {
+        page = boundedPage,
+        pageSize = boundedPageSize,
+        data = logs
+    });
 });
 
 app.MapGet("/api/monitoring/stats", async (int minutes = 60) =>

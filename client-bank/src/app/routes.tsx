@@ -12,13 +12,6 @@ import { useAuth } from "../shared/lib//AuthProvider";
 export const AppRoutes = () => {
   const { isAuthenticated, userRole, token, isLoading } = useAuth();
 
-  console.log('\n🔐 ===== APP ROUTES STATE =====');
-  console.log('  - isAuthenticated:', isAuthenticated);
-  console.log('  - isLoading:', isLoading);
-  console.log('  - userRole:', userRole);
-  console.log('  - token:', token ? `${token.substring(0, 50)}...` : 'missing');
-  console.log('🔐 ===========================\n');
-
   if (isLoading) {
     return (
       <div style={{ 
@@ -34,11 +27,9 @@ export const AppRoutes = () => {
 
   return (
     <Routes>
-      {/* Публичные маршруты */}
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Защищенные маршруты - требуют аутентификации */}
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route path="/" element={<Navigate to="/accounts" />} />
@@ -49,7 +40,6 @@ export const AppRoutes = () => {
         </Route>
       </Route>
 
-      {/* 404 - страница не найдена */}
       <Route path="*" element={<h1>Страница не найдена</h1>} />
     </Routes>
   );
