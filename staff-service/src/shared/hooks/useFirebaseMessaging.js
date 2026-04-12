@@ -3,7 +3,6 @@ import { getToken, onMessage } from 'firebase/messaging';
 import { messaging } from '../firebase/firebase';
 import { registerPushToken } from '../../services/api/push/pushTokenService';
 import { normalizeMessagingPayload } from '../firebase/notificationPayload';
-import { appendRecentNotification } from '../notifications/recentNotifications';
 
 const FCM_TOKEN_STORAGE_KEY = 'staff_fcm_token';
 const MESSAGE_DEDUPE_TTL_MS = 15000;
@@ -86,7 +85,6 @@ export const useFirebaseMessaging = () => {
         hasNotification: Boolean(payload?.notification),
         dataKeys: Object.keys(payload?.data || {}),
       });
-      appendRecentNotification(payload);
       void showForegroundNotification(payload);
     });
 

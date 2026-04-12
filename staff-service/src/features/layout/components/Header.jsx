@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, authService } from '../../../services/api/auth/authService';
 import { useTheme } from '../../../ThemeContext';
-import { NotificationCenter } from './NotificationCenter';
+import { useUserPermissions } from '../../users/hooks/useUserPermissions';
 
 export const Header = () => {
   const navigate = useNavigate();
@@ -103,8 +103,6 @@ export const Header = () => {
         >
           🏦 Мастер-счет
         </button>
-
-        <NotificationCenter onNavigate={handleNavigate} />
 
         <div style={styles.userInfo}>
           <span style={styles.userName}>👤 {userName}</span>

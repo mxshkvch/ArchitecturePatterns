@@ -23,15 +23,6 @@ export interface NormalizedPushNotification {
   image?: string;
 }
 
-export interface NotificationCenterItem {
-  id: string;
-  title: string;
-  body: string;
-  time: string;
-  link: string;
-  read: boolean;
-}
-
 const DEFAULT_TITLE = "Банковское уведомление";
 const DEFAULT_BODY = "У вас новое событие в приложении банка.";
 const DEFAULT_ICON = "/vite.svg";
@@ -119,15 +110,3 @@ export const buildNotificationOptions = (
 
 export const resolveNotificationDeduplicationKey = (notification: NormalizedPushNotification): string =>
   notification.messageId || notification.tag;
-
-export const createNotificationCenterItem = (
-  notification: NormalizedPushNotification,
-  timestamp: number = Date.now(),
-): NotificationCenterItem => ({
-  id: notification.messageId || `${notification.tag}-${timestamp}`,
-  title: notification.title,
-  body: notification.body,
-  time: new Date(timestamp).toISOString(),
-  link: notification.url,
-  read: false,
-});
