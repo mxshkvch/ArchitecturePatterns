@@ -1,7 +1,8 @@
 import { Navbar, Nav, Container, Button } from "react-bootstrap";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 import { useTheme } from "../../lib/provider/themeProvider";
+import { NotificationCenter } from "./notificationCenter";
 
 export const Header = () => {
   const { theme, toggleTheme } = useTheme();
@@ -35,6 +36,8 @@ export const Header = () => {
         >
           {theme === "DARK" ? "☀️" : "🌙"}
         </Button>
+
+        <NotificationCenter isDark={theme === "DARK"} />
 
         <Button variant="outline-danger" size="sm" onClick={handleLogout}>
           Выйти

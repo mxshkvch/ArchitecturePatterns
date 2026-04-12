@@ -4,9 +4,12 @@ import { getToken, onMessage, type MessagePayload } from "firebase/messaging";
 import { registerPushToken } from "../api/pushNotifications";
 import {
   buildNotificationOptions,
+  createNotificationCenterItem,
   normalizePushNotification,
   resolveNotificationDeduplicationKey,
+  type NormalizedPushNotification,
 } from "./notificationPayload";
+import { addNotificationCenterItem } from "./notificationCenterStore";
 
 interface UseFirebaseMessagingInitParams {
   isAuthenticated: boolean;
@@ -46,7 +49,7 @@ export const useFirebaseMessagingInit = ({ isAuthenticated, isLoading, authToken
       return false;
     };
 
-    const showForegroundNotification = async (payload: MessagePayload): Promise<void> => {
+    const showForegroundNotification = async (notification: NormalizedPushNotification): Promise<void> => {
       if (!("Notification" in window)) {
         console.warn("[push][client] Notification API unavailable in browser");
         return;
@@ -55,17 +58,6 @@ export const useFirebaseMessagingInit = ({ isAuthenticated, isLoading, authToken
       if (Notification.permission !== "granted") {
         console.warn("[push][client] Foreground notification skipped due to permission", {
           permission: Notification.permission,
-        });
-        return;
-      }
-
-      const notification = normalizePushNotification(payload);
-      const deduplicationKey = resolveNotificationDeduplicationKey(notification);
-      if (shouldSkipDuplicate(deduplicationKey)) {
-        console.log("[push][client] Foreground duplicate skipped", {
-          deduplicationKey,
-          messageId: notification.messageId,
-          tag: notification.tag,
         });
         return;
       }
@@ -100,7 +92,19 @@ export const useFirebaseMessagingInit = ({ isAuthenticated, isLoading, authToken
         hasNotification: Boolean(payload.notification),
         dataKeys: Object.keys(payload.data ?? {}),
       });
-      void showForegroundNotification(payload);
+      const notification = normalizePushNotification(payload);
+      const deduplicationKey = resolveNotificationDeduplicationKey(notification);
+      if (shouldSkipDuplicate(deduplicationKey)) {
+        console.log("[push][client] Foreground duplicate skipped", {
+          deduplicationKey,
+          messageId: notification.messageId,
+          tag: notification.tag,
+        });
+        return;
+      }
+
+      addNotificationCenterItem(createNotificationCenterItem(notification));
+      void showForegroundNotification(notification);
     });
 
     return () => {
