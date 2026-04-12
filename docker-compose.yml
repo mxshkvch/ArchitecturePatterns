@@ -155,6 +155,12 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=BffService;Username=postgres;Password=postgres
       - Jwt__Issuer=black.auth
       - Jwt__Audience=black.api
+      - FirebasePush__Enabled=true
+      - FirebasePush__ProjectId=architecturepatterns-d92c3
+      - FirebasePush__CredentialsFilePath=/app/secrets/firebase-service-account.json
+      - FirebasePush__CredentialsJson=
+      - FirebasePush__ClientTopicPrefix=user-
+      - FirebasePush__StaffTopic=employees
     depends_on:
       postgres:
         condition: service_healthy

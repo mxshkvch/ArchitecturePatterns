@@ -39,4 +39,9 @@ export const ENDPOINTS = {
     GET: '/bff/settings',
     UPDATE: '/bff/settings',
   },
+
+  PUSH_TOKENS: {
+    REGISTER: '/bff/push-tokens/register',
+    UNREGISTER: '/bff/push-tokens/unregister',
+  },
 };

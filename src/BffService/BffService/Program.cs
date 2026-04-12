@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
 using BffService.Abstractions;
+using BffService.Configurations;
 using BffService.Data;
 using BffService.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -66,8 +67,11 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<FirebasePushOptions>(builder.Configuration.GetSection("FirebasePush"));
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
+builder.Services.AddScoped<IPushTokenService, PushTokenService>();
+builder.Services.AddSingleton<IFirebaseTopicSubscriptionService, FirebaseTopicSubscriptionService>();
 
 var app = builder.Build();
 
@@ -122,7 +126,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BffDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
 await app.RunAsync();

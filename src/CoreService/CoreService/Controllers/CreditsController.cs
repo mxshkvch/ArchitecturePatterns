@@ -1,5 +1,7 @@
 using CoreService.Abstractions;
+using CoreService.Abstractions.Realtime;
 using CoreService.DTOs.Requests;
+using CoreService.Messaging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,11 +14,16 @@ public class CreditsController : ControllerBase
 {
     private readonly ICreditService _creditService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IOperationNotificationService _operationNotificationService;
 
-    public CreditsController(ICreditService creditService, ICurrentUserService currentUserService)
+    public CreditsController(
+        ICreditService creditService,
+        ICurrentUserService currentUserService,
+        IOperationNotificationService operationNotificationService)
     {
         _creditService = creditService;
         _currentUserService = currentUserService;
+        _operationNotificationService = operationNotificationService;
     }
 
     [HttpGet("credits/tariffs")]
@@ -56,6 +63,20 @@ public class CreditsController : ControllerBase
     {
         var userId = _currentUserService.GetUserId();
         await _creditService.PayCreditAsync(creditId, userId, request);
+
+        await _operationNotificationService.NotifyOperationInvalidatedAsync(
+            new AccountOperationMessage
+            {
+                OperationId = Guid.NewGuid(),
+                IdempotencyKey = null,
+                OperationType = AccountOperationType.PAYMENT,
+                UserId = userId,
+                AccountId = request.AccountId,
+                Amount = request.Amount,
+                CreatedAt = DateTimeOffset.UtcNow
+            },
+            HttpContext.RequestAborted);
+
         return Ok();
     }
 

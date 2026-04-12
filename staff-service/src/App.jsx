@@ -18,6 +18,7 @@ import { AccountTransactions } from './features/transactions/pages/AccountTransa
 import { SettingsPage } from './features/settings/pages/SettingsPage';
 
 import { useGlobalWebSocket } from './shared/hooks/useWebSocket';
+import { useFirebaseMessaging } from './shared/hooks/useFirebaseMessaging';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +51,11 @@ const WebSocketInitializer = () => {
   return null;
 };
 
+const FirebaseMessagingInitializer = () => {
+  useFirebaseMessaging();
+  return null;
+};
+
 function App() {
   const [isAppLoading, setIsAppLoading] = React.useState(false);
 
@@ -75,6 +81,7 @@ function App() {
         <ThemeProvider>
           <BrowserRouter>
             <WebSocketInitializer />
+            <FirebaseMessagingInitializer />
             
             <Routes>
               {/* Корневой путь - обрабатывает токен из URL */}

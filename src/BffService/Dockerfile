@@ -8,6 +8,7 @@ RUN dotnet publish src/BffService/BffService/BffService.csproj -c Release -o /ap
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
+COPY architecturepatterns-d92c3-firebase-adminsdk-fbsvc-54adf1e762.json /app/secrets/firebase-service-account.json
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "BffService.dll"]
