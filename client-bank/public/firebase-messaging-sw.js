@@ -11,6 +11,7 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
+console.log("[push-sw][client] Firebase messaging service worker initialized");
 const DEFAULT_TITLE = "Банковское уведомление";
 const DEFAULT_BODY = "У вас новое событие в приложении банка.";
 const DEFAULT_ICON = "/vite.svg";
@@ -84,13 +85,30 @@ const shouldSkipDuplicate = (key) => {
 };
 
 messaging.onBackgroundMessage((payload) => {
+  console.log("[push-sw][client] Background message received", {
+    messageId: payload?.messageId,
+    hasNotification: Boolean(payload?.notification),
+    dataKeys: Object.keys(payload?.data || {}),
+  });
+
   const notification = normalizePayload(payload);
   const dedupeKey = notification.messageId || notification.tag;
 
   if (shouldSkipDuplicate(dedupeKey)) {
+    console.log("[push-sw][client] Background duplicate skipped", {
+      dedupeKey,
+      messageId: notification.messageId,
+      tag: notification.tag,
+    });
     return;
   }
 
+  console.log("[push-sw][client] Showing background notification", {
+    title: notification.title,
+    tag: notification.tag,
+    messageId: notification.messageId,
+    targetUrl: notification.url,
+  });
   self.registration.showNotification(notification.title, {
     body: notification.body,
     icon: notification.icon,
@@ -110,6 +128,11 @@ self.addEventListener("notificationclick", (event) => {
 
   const relativeUrl = event.notification?.data?.url || "/";
   const targetUrl = new URL(relativeUrl, self.location.origin).href;
+  console.log("[push-sw][client] Notification click", {
+    relativeUrl,
+    targetUrl,
+    messageId: event.notification?.data?.messageId || "",
+  });
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
@@ -118,10 +141,15 @@ self.addEventListener("notificationclick", (event) => {
         const sameOriginPath = new URL(client.url).pathname === new URL(targetUrl).pathname;
 
         if (sameUrl || sameOriginPath) {
+          console.log("[push-sw][client] Focusing existing client window", {
+            clientUrl: client.url,
+            targetUrl,
+          });
           return client.focus();
         }
       }
 
+      console.log("[push-sw][client] Opening new client window", { targetUrl });
       return self.clients.openWindow(targetUrl);
     })
   );

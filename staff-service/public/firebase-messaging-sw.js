@@ -12,6 +12,7 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
+console.log('[push-sw][staff] Firebase messaging service worker initialized');
 const MESSAGE_DEDUPE_TTL_MS = 15000;
 const recentMessages = new Map();
 
@@ -168,12 +169,28 @@ const normalizePayload = (payload) => {
 };
 
 messaging.onBackgroundMessage((payload) => {
+  console.log('[push-sw][staff] Background message received', {
+    messageId: payload && payload.messageId ? payload.messageId : '',
+    hasNotification: Boolean(payload && payload.notification),
+    dataKeys: Object.keys((payload && payload.data) || {}),
+  });
+
   const normalized = normalizePayload(payload);
 
   if (isDuplicateMessage(normalized.dedupeKey)) {
+    console.log('[push-sw][staff] Background duplicate skipped', {
+      dedupeKey: normalized.dedupeKey,
+      tag: normalized.options && normalized.options.tag ? normalized.options.tag : '',
+      messageId: normalized.options && normalized.options.data ? normalized.options.data.messageId : '',
+    });
     return;
   }
 
+  console.log('[push-sw][staff] Showing background notification', {
+    title: normalized.title,
+    tag: normalized.options && normalized.options.tag ? normalized.options.tag : '',
+    targetUrl: normalized.options && normalized.options.data ? normalized.options.data.link : '/',
+  });
   self.registration.showNotification(normalized.title, normalized.options);
 });
 
@@ -182,13 +199,25 @@ self.addEventListener('notificationclick', (event) => {
 
   const targetUrl = (event.notification && event.notification.data && event.notification.data.link) || '/';
   const absoluteTargetUrl = new URL(targetUrl, self.location.origin).href;
+  console.log('[push-sw][staff] Notification click', {
+    targetUrl: absoluteTargetUrl,
+    messageId: event.notification && event.notification.data ? event.notification.data.messageId : '',
+  });
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
         if (client.url.startsWith(self.location.origin)) {
+          console.log('[push-sw][staff] Focusing existing client window', {
+            clientUrl: client.url,
+            targetUrl: absoluteTargetUrl,
+          });
           return client.focus().then((focusedClient) => {
             if (focusedClient.url !== absoluteTargetUrl && typeof focusedClient.navigate === 'function') {
+              console.log('[push-sw][staff] Navigating focused client to notification target', {
+                from: focusedClient.url,
+                to: absoluteTargetUrl,
+              });
               return focusedClient.navigate(absoluteTargetUrl);
             }
 
@@ -198,6 +227,7 @@ self.addEventListener('notificationclick', (event) => {
       }
 
       if (clients.openWindow) {
+        console.log('[push-sw][staff] Opening new client window', { targetUrl: absoluteTargetUrl });
         return clients.openWindow(absoluteTargetUrl);
       }
 
