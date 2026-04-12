@@ -23,11 +23,7 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 const getBackoffDelay = (attempt: number) =>
   300 * Math.pow(2, attempt);
 
-const requestWithRetry = async (
-  config: AxiosRequestConfig,
-  traceId: string,
-  retries = MAX_RETRIES
-): Promise<any> => {
+const requestWithRetry = async (config: AxiosRequestConfig, traceId: string, retries = MAX_RETRIES): Promise<any> => {
   try {
     const response = await apiClient({
       ...config,
@@ -46,9 +42,9 @@ const requestWithRetry = async (
       typeof err.response?.status === "number" &&
       err.response.status >= 500;
 
-    const isGet = config.method?.toLowerCase() === "get";
+    const shouldRetry = isServerError && retries > 0;
 
-    if (isServerError && isGet && retries > 0) {
+    if (shouldRetry) {
       failureCount++;
 
       const attempt = MAX_RETRIES - retries;
@@ -68,9 +64,16 @@ export const safeRequest = async (config: AxiosRequestConfig) => {
   const key = getKey(config);
   const traceId = generateTraceId();
 
+  const method = config.method?.toLowerCase();
+  const isMutation = method !== "get";
+
+  const idempotencyKey = isMutation
+    ? crypto.randomUUID()
+    : undefined;
+
   const start = performance.now();
 
-  if (pendingRequests.has(key)) {
+  if (!isMutation && pendingRequests.has(key)) {
     return pendingRequests.get(key)!;
   }
 
@@ -80,12 +83,23 @@ export const safeRequest = async (config: AxiosRequestConfig) => {
     throw err;
   }
 
+  const requestConfig: AxiosRequestConfig = {
+    ...config,
+    headers: {
+      ...config.headers,
+      "x-trace-id": traceId,
+      ...(idempotencyKey && {
+        "Idempotency-Key": idempotencyKey,
+      }),
+    },
+  };
+
   const promise = (async () => {
     let response: any;
     let error: any;
 
     try {
-      response = await requestWithRetry(config, traceId);
+      response = await requestWithRetry(requestConfig, traceId);
       return response;
     } catch (e) {
       error = e;
@@ -115,11 +129,15 @@ export const safeRequest = async (config: AxiosRequestConfig) => {
         createdAtUtc: new Date().toISOString(),
       });
 
-      pendingRequests.delete(key);
+      if (!isMutation) {
+        pendingRequests.delete(key);
+      }
     }
   })();
 
-  pendingRequests.set(key, promise);
+  if (!isMutation) {
+    pendingRequests.set(key, promise);
+  }
 
   try {
     return await promise;
