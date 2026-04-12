@@ -1,7 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { messaging } from "./firebase";
 import { getToken, onMessage, type MessagePayload } from "firebase/messaging";
 import { registerPushToken } from "../api/pushNotifications";
+import {
+  buildNotificationOptions,
+  normalizePushNotification,
+  resolveNotificationDeduplicationKey,
+} from "./notificationPayload";
 
 interface UseFirebaseMessagingInitParams {
   isAuthenticated: boolean;
@@ -11,11 +16,60 @@ interface UseFirebaseMessagingInitParams {
 
 const CLIENT_APP_TYPE = "CLIENT";
 const FCM_TOKEN_STORAGE_KEY = "client_fcm_token";
+const FOREGROUND_DEDUPLICATION_WINDOW_MS = 60_000;
 
 export const useFirebaseMessagingInit = ({ isAuthenticated, isLoading, authToken }: UseFirebaseMessagingInitParams) => {
+  const recentNotificationKeysRef = useRef<Map<string, number>>(new Map());
+
   useEffect(() => {
+    const cleanupStaleNotificationKeys = (now: number): void => {
+      recentNotificationKeysRef.current.forEach((timestamp, key) => {
+        if (now - timestamp > FOREGROUND_DEDUPLICATION_WINDOW_MS) {
+          recentNotificationKeysRef.current.delete(key);
+        }
+      });
+    };
+
+    const shouldSkipDuplicate = (deduplicationKey: string): boolean => {
+      const now = Date.now();
+      cleanupStaleNotificationKeys(now);
+
+      const seenAt = recentNotificationKeysRef.current.get(deduplicationKey);
+      if (seenAt && now - seenAt < FOREGROUND_DEDUPLICATION_WINDOW_MS) {
+        return true;
+      }
+
+      recentNotificationKeysRef.current.set(deduplicationKey, now);
+      return false;
+    };
+
+    const showForegroundNotification = async (payload: MessagePayload): Promise<void> => {
+      if (Notification.permission !== "granted") {
+        return;
+      }
+
+      const notification = normalizePushNotification(payload);
+      const deduplicationKey = resolveNotificationDeduplicationKey(notification);
+      if (shouldSkipDuplicate(deduplicationKey)) {
+        return;
+      }
+
+      const options = buildNotificationOptions(notification);
+
+      try {
+        const registration =
+          (await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js")) ??
+          (await navigator.serviceWorker.ready);
+
+        await registration.showNotification(notification.title, options);
+      } catch {
+        new Notification(notification.title, options);
+      }
+    };
+
     const unsubscribe = onMessage(messaging, (payload: MessagePayload) => {
       console.log("foreground message:", payload);
+      void showForegroundNotification(payload);
     });
 
     return () => unsubscribe();
