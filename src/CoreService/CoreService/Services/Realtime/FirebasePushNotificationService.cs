@@ -23,9 +23,18 @@ public sealed class FirebasePushNotificationService : IFirebasePushNotificationS
     {
         this.options = options.Value;
         this.logger = logger;
+        logger.LogInformation(
+            "Firebase push init. Enabled={Enabled}; ProjectId={ProjectId}; CredentialsFilePath={CredentialsFilePath}; HasCredentialsJson={HasCredentialsJson}; ClientTopicPrefix={ClientTopicPrefix}; StaffTopic={StaffTopic}",
+            this.options.Enabled,
+            this.options.ProjectId ?? string.Empty,
+            this.options.CredentialsFilePath ?? string.Empty,
+            !string.IsNullOrWhiteSpace(this.options.CredentialsJson),
+            this.options.ClientTopicPrefix,
+            this.options.StaffTopic);
 
         if (!this.options.Enabled)
         {
+            logger.LogWarning("Firebase push is disabled by configuration.");
             return;
         }
 
@@ -47,18 +56,28 @@ public sealed class FirebasePushNotificationService : IFirebasePushNotificationS
                 appOptions.ProjectId = this.options.ProjectId;
             }
 
-            FirebaseApp firebaseApp;
+            FirebaseApp? firebaseApp = null;
             try
             {
                 firebaseApp = FirebaseApp.GetInstance(AppName);
             }
             catch (ArgumentException)
             {
+            }
+
+            if (firebaseApp is null)
+            {
                 firebaseApp = FirebaseApp.Create(appOptions, AppName);
+            }
+
+            if (firebaseApp is null)
+            {
+                throw new InvalidOperationException("Firebase app instance could not be created.");
             }
 
             firebaseMessaging = FirebaseMessaging.GetMessaging(firebaseApp);
             enabled = true;
+            logger.LogInformation("Firebase push initialized successfully.");
         }
         catch (Exception exception)
         {
@@ -73,6 +92,14 @@ public sealed class FirebasePushNotificationService : IFirebasePushNotificationS
     {
         if (!enabled || firebaseMessaging is null)
         {
+            logger.LogWarning(
+                "Firebase send skipped because service is unavailable. Enabled={Enabled}; MessagingReady={MessagingReady}; OperationId={OperationId}; OperationType={OperationType}; UserId={UserId}; TargetUserId={TargetUserId}",
+                enabled,
+                firebaseMessaging is not null,
+                message.OperationId,
+                message.OperationType,
+                message.UserId,
+                message.TargetUserId);
             return;
         }
 
@@ -106,6 +133,15 @@ public sealed class FirebasePushNotificationService : IFirebasePushNotificationS
         {
             try
             {
+                logger.LogInformation(
+                    "Sending Firebase notification. Topic={Topic}; OperationId={OperationId}; OperationType={OperationType}; UserId={UserId}; TargetUserId={TargetUserId}; Amount={Amount}; IdempotencyKey={IdempotencyKey}",
+                    topic,
+                    message.OperationId,
+                    message.OperationType,
+                    message.UserId,
+                    message.TargetUserId,
+                    message.Amount,
+                    message.IdempotencyKey ?? string.Empty);
                 var pushMessage = new Message
                 {
                     Topic = topic,
@@ -117,11 +153,24 @@ public sealed class FirebasePushNotificationService : IFirebasePushNotificationS
                     }
                 };
 
-                await firebaseMessaging.SendAsync(pushMessage, cancellationToken);
+                var messageId = await firebaseMessaging.SendAsync(pushMessage, cancellationToken);
+                logger.LogInformation(
+                    "Firebase notification sent successfully. Topic={Topic}; MessageId={MessageId}; OperationId={OperationId}",
+                    topic,
+                    messageId,
+                    message.OperationId);
             }
             catch (Exception exception)
             {
-                logger.LogWarning(exception, "Failed to deliver Firebase notification to topic {Topic}", topic);
+                logger.LogError(
+                    exception,
+                    "Failed to deliver Firebase notification. Topic={Topic}; OperationId={OperationId}; OperationType={OperationType}; UserId={UserId}; TargetUserId={TargetUserId}; IdempotencyKey={IdempotencyKey}",
+                    topic,
+                    message.OperationId,
+                    message.OperationType,
+                    message.UserId,
+                    message.TargetUserId,
+                    message.IdempotencyKey ?? string.Empty);
             }
         }
     }

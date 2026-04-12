@@ -13,6 +13,16 @@ public sealed class OperationNotificationService(
     public async Task NotifyOperationInvalidatedAsync(AccountOperationMessage message, CancellationToken cancellationToken)
     {
         var occurredAt = DateTimeOffset.UtcNow;
+        logger.LogInformation(
+            "Processing operation notification. OperationId={OperationId}; OperationType={OperationType}; UserId={UserId}; TargetUserId={TargetUserId}; AccountId={AccountId}; TargetAccountId={TargetAccountId}; Amount={Amount}; IdempotencyKey={IdempotencyKey}",
+            message.OperationId,
+            message.OperationType,
+            message.UserId,
+            message.TargetUserId,
+            message.AccountId,
+            message.TargetAccountId,
+            message.Amount,
+            message.IdempotencyKey ?? string.Empty);
         var payload = new
         {
             type = "operation_invalidation",
@@ -44,5 +54,9 @@ public sealed class OperationNotificationService(
         }
 
         await firebasePushNotificationService.NotifyOperationUpdatedAsync(message, occurredAt, cancellationToken);
+        logger.LogInformation(
+            "Operation notification dispatch completed. OperationId={OperationId}; OperationType={OperationType}",
+            message.OperationId,
+            message.OperationType);
     }
 }

@@ -11,34 +11,30 @@ namespace BffService.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "UserSettings",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ApplicationType = table.Column<int>(type: "integer", nullable: false),
-                    Theme = table.Column<int>(type: "integer", nullable: false),
-                    HiddenAccountIdsJson = table.Column<string>(type: "text", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserSettings", x => x.Id);
-                });
+            migrationBuilder.Sql("""
+                CREATE TABLE IF NOT EXISTS "UserSettings" (
+                    "Id" uuid NOT NULL,
+                    "UserId" uuid NOT NULL,
+                    "ApplicationType" integer NOT NULL,
+                    "Theme" integer NOT NULL,
+                    "HiddenAccountIdsJson" text NOT NULL,
+                    "UpdatedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_UserSettings" PRIMARY KEY ("Id")
+                );
+                """);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_UserSettings_UserId_ApplicationType",
-                table: "UserSettings",
-                columns: new[] { "UserId", "ApplicationType" },
-                unique: true);
+            migrationBuilder.Sql("""
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_UserSettings_UserId_ApplicationType"
+                ON "UserSettings" ("UserId", "ApplicationType");
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "UserSettings");
+            migrationBuilder.Sql("""
+                DROP TABLE IF EXISTS "UserSettings";
+                """);
         }
     }
 }

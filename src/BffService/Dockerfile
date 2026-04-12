@@ -10,5 +10,10 @@ WORKDIR /app
 COPY --from=build /app/publish .
 COPY architecturepatterns-d92c3-firebase-adminsdk-fbsvc-54adf1e762.json /app/secrets/firebase-service-account.json
 ENV ASPNETCORE_URLS=http://+:8080
+ENV FirebasePush__Enabled=true \
+    FirebasePush__ProjectId=architecturepatterns-d92c3 \
+    FirebasePush__CredentialsFilePath=/app/secrets/firebase-service-account.json \
+    FirebasePush__ClientTopicPrefix=user- \
+    FirebasePush__StaffTopic=employees
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "BffService.dll"]

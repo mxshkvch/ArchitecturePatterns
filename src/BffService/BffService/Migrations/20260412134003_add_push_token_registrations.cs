@@ -11,39 +11,35 @@ namespace BffService.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "PushTokenRegistrations",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ApplicationType = table.Column<int>(type: "integer", nullable: false),
-                    Token = table.Column<string>(type: "character varying(4096)", maxLength: 4096, nullable: false),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PushTokenRegistrations", x => x.Id);
-                });
+            migrationBuilder.Sql("""
+                CREATE TABLE IF NOT EXISTS "PushTokenRegistrations" (
+                    "Id" uuid NOT NULL,
+                    "UserId" uuid NOT NULL,
+                    "ApplicationType" integer NOT NULL,
+                    "Token" character varying(4096) NOT NULL,
+                    "CreatedAt" timestamp with time zone NOT NULL,
+                    "UpdatedAt" timestamp with time zone NOT NULL,
+                    CONSTRAINT "PK_PushTokenRegistrations" PRIMARY KEY ("Id")
+                );
+                """);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_PushTokenRegistrations_Token",
-                table: "PushTokenRegistrations",
-                column: "Token",
-                unique: true);
+            migrationBuilder.Sql("""
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_PushTokenRegistrations_Token"
+                ON "PushTokenRegistrations" ("Token");
+                """);
 
-            migrationBuilder.CreateIndex(
-                name: "IX_PushTokenRegistrations_UserId_ApplicationType",
-                table: "PushTokenRegistrations",
-                columns: new[] { "UserId", "ApplicationType" });
+            migrationBuilder.Sql("""
+                CREATE INDEX IF NOT EXISTS "IX_PushTokenRegistrations_UserId_ApplicationType"
+                ON "PushTokenRegistrations" ("UserId", "ApplicationType");
+                """);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "PushTokenRegistrations");
+            migrationBuilder.Sql("""
+                DROP TABLE IF EXISTS "PushTokenRegistrations";
+                """);
         }
     }
 }

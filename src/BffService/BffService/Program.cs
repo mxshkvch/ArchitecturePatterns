@@ -75,6 +75,16 @@ builder.Services.AddSingleton<IFirebaseTopicSubscriptionService, FirebaseTopicSu
 
 var app = builder.Build();
 
+var firebasePushOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<FirebasePushOptions>>().Value;
+app.Logger.LogInformation(
+    "BffService Firebase config. Enabled={Enabled}; ProjectId={ProjectId}; CredentialsFilePath={CredentialsFilePath}; HasCredentialsJson={HasCredentialsJson}; ClientTopicPrefix={ClientTopicPrefix}; StaffTopic={StaffTopic}",
+    firebasePushOptions.Enabled,
+    firebasePushOptions.ProjectId ?? string.Empty,
+    firebasePushOptions.CredentialsFilePath ?? string.Empty,
+    !string.IsNullOrWhiteSpace(firebasePushOptions.CredentialsJson),
+    firebasePushOptions.ClientTopicPrefix,
+    firebasePushOptions.StaffTopic);
+
 app.UseCors("AllowAll");
 
 app.UseExceptionHandler(errorApp =>

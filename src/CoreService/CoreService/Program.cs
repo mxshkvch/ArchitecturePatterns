@@ -156,6 +156,15 @@ builder.Services.AddSingleton<IConnection>(_ =>
 });
 
 var app = builder.Build();
+var coreFirebasePushOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<FirebasePushOptions>>().Value;
+app.Logger.LogInformation(
+    "CoreService Firebase config. Enabled={Enabled}; ProjectId={ProjectId}; CredentialsFilePath={CredentialsFilePath}; HasCredentialsJson={HasCredentialsJson}; ClientTopicPrefix={ClientTopicPrefix}; StaffTopic={StaffTopic}",
+    coreFirebasePushOptions.Enabled,
+    coreFirebasePushOptions.ProjectId ?? string.Empty,
+    coreFirebasePushOptions.CredentialsFilePath ?? string.Empty,
+    !string.IsNullOrWhiteSpace(coreFirebasePushOptions.CredentialsJson),
+    coreFirebasePushOptions.ClientTopicPrefix,
+    coreFirebasePushOptions.StaffTopic);
 var requestActivitySource = new ActivitySource("CoreService.Requests");
 long totalRequests = 0;
 long failedRequests = 0;
