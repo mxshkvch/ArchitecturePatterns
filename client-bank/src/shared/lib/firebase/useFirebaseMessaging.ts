@@ -9,18 +9,19 @@ interface Props {
   authToken: string | null;
 }
 
-export const useFirebaseMessagingInit = ({
-  isAuthenticated,
-  isLoading,
-  authToken,
-}: Props) => {
+export const useFirebaseMessagingInit = ({isAuthenticated, isLoading, authToken}: Props) => {
   useEffect(() => {
     const unsubscribe = onMessage(messaging, (payload) => {
       console.log("[FCM] Foreground push received:", payload);
 
+      const title = payload.notification?.title ?? "Уведомление";
+      const body = payload.notification?.body ?? "";
+
       if (Notification.permission === "granted") {
-        new Notification(payload.notification?.title ?? "Уведомление", {
-          body: payload.notification?.body ?? "",
+        new Notification(title, {
+          body,
+          icon: "/vite.svg",
+          data: payload.data,
         });
       }
     });
@@ -47,7 +48,7 @@ export const useFirebaseMessagingInit = ({
         serviceWorkerRegistration: registration,
       });
 
-      console.log("[FCM] Token received:", token ? "OK" : "EMPTY");
+      console.log("[FCM] Token:", token ? "OK" : "EMPTY");
 
       if (!token) return;
 

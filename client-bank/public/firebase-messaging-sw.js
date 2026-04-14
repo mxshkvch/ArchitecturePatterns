@@ -15,10 +15,8 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log("[SW] Background push received:", payload);
 
-  const title = payload.notification?.title || "Уведомление";
-  const body = payload.notification?.body || "";
-
-  console.log("[SW] Show notification:", { title, body });
+  const title = payload.notification?.title ?? "Уведомление";
+  const body = payload.notification?.body ?? "";
 
   self.registration.showNotification(title, {
     body,

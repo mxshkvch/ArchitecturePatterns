@@ -5,8 +5,19 @@ import { AppRoutes } from "./routes";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./index.css";
 import { ThemeProvider } from "../shared/lib/provider/themeProvider";
-import { AuthProvider } from "../shared/lib//AuthProvider";
+import { AuthProvider } from "../shared/lib/AuthProvider";
 import { AppLayout } from "../shared/ui/layout/appLayout";
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/firebase-messaging-sw.js")
+    .then((registration) => {
+      console.log("[SW] registered:", registration.scope);
+    })
+    .catch((error) => {
+      console.error("[SW] registration failed:", error);
+    });
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
