@@ -1,4 +1,3 @@
-// src/hooks/useWebSocket.ts
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WebSocketClient, WebSocketEvent } from '../core/websocket/websocket-client';
 import { DIContainer } from '../core/di/container';

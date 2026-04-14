@@ -1,4 +1,3 @@
-// src/use-cases/auth.use-cases.ts
 import { TokenStorage } from '../core/auth/token-storage';
 import { NotificationService } from '../core/notifications/notification.service';
 import { config } from '../config/env';
@@ -63,7 +62,6 @@ export class AuthUseCases {
       console.log('Auth response.code (direct):', authResponse.code);
       console.log('📥 ===== AUTH RESPONSE END =====');
       
-      // Проверяем структуру ответа
       const code = authResponse?.data?.code || authResponse?.code;
       
       if (!code) {
@@ -73,7 +71,6 @@ export class AuthUseCases {
       
       console.log('✅ Authorization code received:', code);
       
-      // 2. Обмениваем code на токены
       console.log('\n🔄 Step 2: Exchanging code for tokens...');
       console.log('Sending token request with data:', {
         grant_type: 'authorization_code',
@@ -108,7 +105,6 @@ export class AuthUseCases {
       console.log('Token response.access_token (direct):', tokenResponse.access_token ? '✅ Present' : '❌ Missing');
       console.log('📥 ===== TOKEN RESPONSE END =====\n');
       
-      // Проверяем структуру ответа с токенами
       const accessToken = tokenResponse?.data?.access_token || tokenResponse?.access_token;
       const refreshToken = tokenResponse?.data?.refresh_token || tokenResponse?.refresh_token;
       const expiresIn = tokenResponse?.data?.expires_in || tokenResponse?.expires_in;
@@ -124,7 +120,6 @@ export class AuthUseCases {
       console.log('  - Expires in:', expiresIn, 'seconds');
       console.log('  - Refresh Token present:', !!refreshToken);
       
-      // 3. Сохраняем токены
       console.log('\n💾 Step 3: Saving tokens...');
       this.tokenStorage.saveTokens({
         access_token: accessToken,
@@ -137,7 +132,6 @@ export class AuthUseCases {
       
       console.log('✅ Tokens saved successfully!');
       
-      // Проверяем, что токены сохранились
       const savedToken = this.tokenStorage.getAccessToken();
       console.log('🔍 Verifying saved token:', savedToken ? '✅ Present' : '❌ Missing');
       
@@ -149,7 +143,6 @@ export class AuthUseCases {
       console.log('  - Access Token:', accessToken.substring(0, 50) + '...');
       console.log('  - User Role:', credentials.role);
       
-      // 🔴 ВРЕМЕННО КОММЕНТИРУЕМ ПЕРЕХОД НА НОВУЮ СТРАНИЦУ ДЛЯ ОТЛАДКИ
       console.log('\n⚠️ [DEBUG] REDIRECT IS DISABLED FOR TESTING ⚠️');
       console.log('Would redirect to:', redirectTo);
       console.log('With token:', accessToken.substring(0, 50) + '...');

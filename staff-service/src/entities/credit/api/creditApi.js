@@ -20,6 +20,25 @@ export const useCreditsQuery = (page = 0, size = 10) => {
   });
 };
 
+export const useDelinquenciesQuery = (userId, page = 0, size = 10) => {
+  const apiPage = page + 1;
+  
+  console.log('🔍 [useDelinquenciesQuery] Query params:', { userId, page: apiPage, size });
+  
+  return useQuery({
+    queryKey: ['delinquencies', userId, apiPage, size],
+    queryFn: async () => {
+      console.log('🚀 [useDelinquenciesQuery] Fetching delinquencies for user:', userId);
+      const result = await creditService.getUserDelinquencies(userId, apiPage, size);
+      console.log('✅ [useDelinquenciesQuery] Fetch result:', result);
+      return result;
+    },
+    enabled: !!userId,
+    staleTime: 30000,
+    retry: 1,
+  });
+};
+
 // Хук для создания кредитного тарифа
 export const useCreateCreditTariffMutation = () => {
   const queryClient = useQueryClient();

@@ -4,14 +4,14 @@ import { useTheme } from '../../../ThemeContext';
 import { updateUserStatus } from '../../../services/api';
 import { formatDate, getStatusColor, getRoleLabel } from '../../../shared/utils';
 import { RatingModal } from '../../../features/credits/ui/RaitingModal';
-
+import { DelinquenciesModal } from '../../../features/credits/ui/DelinquenciesModal';
 export const UserCard = ({ user, onStatusChange }) => {
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const [isUpdating, setIsUpdating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
-
+  const [showDelinquenciesModal, setShowDelinquenciesModal] = useState(false); 
   const handleCardClick = (e) => {
     if (e.target.closest('button')) return;
     navigate(`/users/${user.id}`);
@@ -21,7 +21,11 @@ export const UserCard = ({ user, onStatusChange }) => {
     e.stopPropagation();
     setShowRatingModal(true);
   };
-
+  
+  const handleDelinquenciesClick = (e) => {
+    e.stopPropagation();
+    setShowDelinquenciesModal(true);
+  };
   const handleStatusToggle = async (e) => {
     e.stopPropagation();
     
@@ -143,7 +147,15 @@ export const UserCard = ({ user, onStatusChange }) => {
               {user.email}
             </p>
           </div>
-          
+           <button
+            onClick={handleDelinquenciesClick}
+            style={styles.delinquenciesButton}
+            title="Просмотреть просроченные кредиты"
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#e67e22'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = '#f39c12'}
+          >
+            ⚠️
+          </button>
           {/* Кнопка рейтинга */}
           <button
             onClick={handleRatingClick}
@@ -289,14 +301,20 @@ export const UserCard = ({ user, onStatusChange }) => {
           </div>
         )}
       </div>
-
-      {/* Модальное окно рейтинга */}
+ <DelinquenciesModal
+        isOpen={showDelinquenciesModal}
+        onClose={() => setShowDelinquenciesModal(false)}
+        userId={user.id}
+        userName={`${user.firstName} ${user.lastName}`}
+      />
+      {}
       <RatingModal
         isOpen={showRatingModal}
         onClose={() => setShowRatingModal(false)}
         userId={user.id}
         userName={`${user.firstName} ${user.lastName}`}
       />
+      
     </>
   );
 };

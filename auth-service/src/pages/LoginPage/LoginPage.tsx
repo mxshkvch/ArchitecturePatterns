@@ -1,6 +1,7 @@
-// src/pages/LoginPage/LoginPage.tsx
+
 import * as React from 'react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthCotext';
 import { Button } from '../../components/ui/Button/Button';
 import { Form, FormField } from '../../components/ui/Form/Form';
@@ -8,6 +9,7 @@ import './LoginPage.css';
 
 export const LoginPage: React.FC = () => {
   const { login, loading, error: authError } = useAuth();
+  const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState<'client' | 'staff'>('client');
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -18,6 +20,11 @@ export const LoginPage: React.FC = () => {
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Login failed');
     }
+  };
+
+  const handleRegisterClick = () => {
+    console.log('📝 Navigating to registration page');
+    navigate('/register');
   };
 
   return (
@@ -32,13 +39,13 @@ export const LoginPage: React.FC = () => {
           onSubmit={handleSubmit}
           validationSchema={{
             email: (value: string) => {
-              if (!value) return 'Email is required';
-              if (!/\S+@\S+\.\S+/.test(value)) return 'Email is invalid';
+              if (!value) return 'Email обязателен';
+              if (!/\S+@\S+\.\S+/.test(value)) return 'Некорректный email';
               return undefined;
             },
             password: (value: string) => {
-              if (!value) return 'Password is required';
-              if (value.length < 6) return 'Password must be at least 6 characters';
+              if (!value) return 'Пароль обязателен';
+              if (value.length < 6) return 'Пароль должен содержать минимум 6 символов';
               return undefined;
             },
           }}
@@ -46,15 +53,15 @@ export const LoginPage: React.FC = () => {
           <FormField name="email" label="Email" required>
             <input
               type="email"
-              placeholder="Enter your email"
+              placeholder="Введите ваш email"
               autoComplete="email"
             />
           </FormField>
 
-          <FormField name="password" label="Password" required>
+          <FormField name="password" label="Пароль" required>
             <input
               type="password"
-              placeholder="Enter your password"
+              placeholder="Введите ваш пароль"
               autoComplete="current-password"
             />
           </FormField>
@@ -69,7 +76,7 @@ export const LoginPage: React.FC = () => {
               >
                 <span className="role-icon">👤</span>
                 <span className="role-name">Клиент</span>
-                <span className="role-desc">Раб банка</span>
+                <span className="role-desc">Доступ к счетам и кредитам</span>
               </button>
               <button
                 type="button"
@@ -78,7 +85,7 @@ export const LoginPage: React.FC = () => {
               >
                 <span className="role-icon">👔</span>
                 <span className="role-name">Сотрудник</span>
-                <span className="role-desc">Рабочий банка</span>
+                <span className="role-desc">Администрирование системы</span>
               </button>
             </div>
           </div>
@@ -97,8 +104,18 @@ export const LoginPage: React.FC = () => {
             loading={loading}
             className="login-btn"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Вход...' : 'Войти'}
           </Button>
+
+          <div className="register-link">
+            <button
+              type="button"
+              className="link-btn"
+              onClick={handleRegisterClick}
+            >
+              Нет аккаунта? Зарегистрироваться
+            </button>
+          </div>
         </Form>
       </div>
     </div>

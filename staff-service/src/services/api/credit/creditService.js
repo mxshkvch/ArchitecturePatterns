@@ -8,6 +8,12 @@ class CreditService {
       const response = await creditApiClient.get(ENDPOINTS.CREDIT.GET_ALL, { params });
       return response.data;
     } catch (error) {
+
+      if (error.code === 'CIRCUIT_OPEN') {
+        console.error(`🔴 Service unavailable: ${error.message}`);
+        throw new Error('SERVICE_TEMPORARILY_UNAVAILABLE');
+      }
+
       console.error('❌ Error loading credits:', error);
       throw error;
     }
@@ -19,6 +25,19 @@ class CreditService {
       return response.data;
     } catch (error) {
       console.error('❌ Error creating credit tariff:', error);
+      throw error;
+    }
+  }
+  async getUserDelinquencies(userId, page = 1, size = 10) {
+    try {
+      console.log('📡 [CreditService] Fetching delinquencies for user:', { userId, page, size });
+      const response = await creditApiClient.get('/admin/credits/delinquencies', {
+        params: { userId, page, size }
+      });
+      console.log('✅ [CreditService] Delinquencies response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [CreditService] Error fetching delinquencies:', error);
       throw error;
     }
   }

@@ -1,8 +1,8 @@
-// services/api/config/axiosConfig.js
 import axios from 'axios';
 import { ENDPOINTS } from './endpoints';
+import { ResilientAxiosWrapper } from '../../resilience/ResilienceAxiosWrapper';
 
-export const createApiClient = (baseURL, withAuth = true) => {
+const createRawApiClient = (baseURL, withAuth = true) => {
   const client = axios.create({
     baseURL,
     timeout: 10000,
@@ -39,9 +39,70 @@ export const createApiClient = (baseURL, withAuth = true) => {
   return client;
 };
 
-// Создаем клиенты для разных сервисов
-export const userApiClient = createApiClient(ENDPOINTS.USER_SERVICE, true);
-export const creditApiClient = createApiClient(ENDPOINTS.CREDIT_SERVICE, true);
-export const coreApiClient = createApiClient(ENDPOINTS.CORE_SERVICE, true);
-export const settingsApiClient = createApiClient(ENDPOINTS.SETTINGS_SERVICE, true);
-export const authApiClient = createApiClient(ENDPOINTS.AUTH_SERVICE, true); // Добавляем клиент для AuthService
+// Конфигурации для разных сервисов (можно настроить индивидуально)
+const resilienceConfigs = {
+  [ENDPOINTS.USER_SERVICE]: {
+    retry: { maxAttempts: 3, initialDelay: 1000 },
+    circuitBreaker: { failureThreshold: 0.7, halfOpenAfter: 30000 }
+  },
+  [ENDPOINTS.CREDIT_SERVICE]: {
+    retry: { maxAttempts: 3, initialDelay: 1000 },
+    circuitBreaker: { failureThreshold: 0.7, halfOpenAfter: 30000 }
+  },
+  [ENDPOINTS.CORE_SERVICE]: {
+    retry: { maxAttempts: 2, initialDelay: 500 },  // менее критичный
+    circuitBreaker: { failureThreshold: 0.8, halfOpenAfter: 60000 }
+  },
+  [ENDPOINTS.SETTINGS_SERVICE]: {
+    retry: { maxAttempts: 3, initialDelay: 1000 },
+    circuitBreaker: { failureThreshold: 0.7, halfOpenAfter: 30000 }
+  },
+  [ENDPOINTS.AUTH_SERVICE]: {
+    retry: { maxAttempts: 1, initialDelay: 500 },  // для auth меньше попыток
+    circuitBreaker: { failureThreshold: 0.5, halfOpenAfter: 60000 } // более строгий порог
+  }
+};
+
+const rawUserApiClient = createRawApiClient(ENDPOINTS.USER_SERVICE, true);
+const rawCreditApiClient = createRawApiClient(ENDPOINTS.CREDIT_SERVICE, true);
+const rawCoreApiClient = createRawApiClient(ENDPOINTS.CORE_SERVICE, true);
+const rawSettingsApiClient = createRawApiClient(ENDPOINTS.SETTINGS_SERVICE, true);
+const rawAuthApiClient = createRawApiClient(ENDPOINTS.AUTH_SERVICE, true);
+
+export const userApiClient = new ResilientAxiosWrapper(
+  rawUserApiClient, 
+  'UserService', 
+  resilienceConfigs[ENDPOINTS.USER_SERVICE]
+);
+
+export const creditApiClient = new ResilientAxiosWrapper(
+  rawCreditApiClient, 
+  'CreditService', 
+  resilienceConfigs[ENDPOINTS.CREDIT_SERVICE]
+);
+
+export const coreApiClient = new ResilientAxiosWrapper(
+  rawCoreApiClient, 
+  'CoreService', 
+  resilienceConfigs[ENDPOINTS.CORE_SERVICE]
+);
+
+export const settingsApiClient = new ResilientAxiosWrapper(
+  rawSettingsApiClient, 
+  'SettingsService', 
+  resilienceConfigs[ENDPOINTS.SETTINGS_SERVICE]
+);
+
+export const authApiClient = new ResilientAxiosWrapper(
+  rawAuthApiClient, 
+  'AuthService', 
+  resilienceConfigs[ENDPOINTS.AUTH_SERVICE]
+);
+
+export const rawClients = {
+  user: rawUserApiClient,
+  credit: rawCreditApiClient,
+  core: rawCoreApiClient,
+  settings: rawSettingsApiClient,
+  auth: rawAuthApiClient
+};

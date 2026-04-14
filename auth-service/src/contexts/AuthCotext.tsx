@@ -36,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✅ AuthUseCases resolved');
         setAuthUseCases(useCases);
         
-        // Проверяем статус
         const authenticated = useCases.isAuthenticated();
         const role = useCases.getUserRole();
         
@@ -71,7 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(true);
     setUserRole(role);
     
-    // Формируем URL с токеном
     const urlWithToken = `${redirectTo}?token=${encodeURIComponent(accessToken)}&role=${role}`;
     
     console.log('\n🔴 ===== REDIRECT INFO =====');

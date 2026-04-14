@@ -25,7 +25,6 @@ export class OAuthRepository {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     
-    // Возвращаем response.data напрямую
     return response;
   }
 

@@ -9,10 +9,7 @@ class UserService {
       if (role) params.role = role;
       
       console.log('========================================');
-      console.log('📡 [UserService] FULL REQUEST URL:', `${userApiClient.defaults.baseURL}${ENDPOINTS.USER.GET_ALL}`);
       console.log('📡 [UserService] Request params:', params);
-      console.log('📡 [UserService] Full URL with params:', 
-        `${userApiClient.defaults.baseURL}${ENDPOINTS.USER.GET_ALL}?${new URLSearchParams(params).toString()}`);
       console.log('========================================');
       
       const response = await userApiClient.get(ENDPOINTS.USER.GET_ALL, { params });

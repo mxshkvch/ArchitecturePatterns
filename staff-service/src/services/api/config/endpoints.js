@@ -26,6 +26,7 @@ export const ENDPOINTS = {
     CREATE_TARIFF: '/admin/credit-tariffs',
     GET_RATING: (userId) => `/admin/credits/rating/${userId}`,
     GET_BY_ID: (id) => `/admin/credits/${id}`,
+    GET_DELINQUENCIES: '/admin/credits/delinquencies',
   },
   
   CORE: {

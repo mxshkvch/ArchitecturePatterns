@@ -1,4 +1,3 @@
-// src/config/env.ts
 export const config = {
   apiUrl: 'http://89.23.105.66:5001',
   wsUrl: 'ws://89.23.105.66:5001/ws',
