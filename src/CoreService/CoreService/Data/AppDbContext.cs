@@ -23,6 +23,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Account>().ToTable(table => table.HasCheckConstraint("CK_Accounts_Balance_NonNegative", "\"Balance\" >= 0"));
 
         modelBuilder.Entity<Transaction>().HasKey(t => t.Id);
+        modelBuilder.Entity<Transaction>()
+            .HasIndex(t => new { t.OperationId, t.AccountId })
+            .IsUnique()
+            .HasFilter("\"OperationId\" IS NOT NULL");
         modelBuilder.Entity<CreditTariff>().HasKey(ct => ct.Id);
         modelBuilder.Entity<Credit>().HasKey(c => c.Id);
     }

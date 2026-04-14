@@ -22,6 +22,7 @@ import { getToken, onMessage } from "firebase/messaging";
 import { registerPushToken } from './services/api/pushNotifications'; // API коллеги
 
 import { useGlobalWebSocket } from './shared/hooks/useWebSocket';
+import { useFirebaseMessaging } from './shared/hooks/useFirebaseMessaging';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +55,7 @@ const WebSocketInitializer = () => {
   return null;
 };
 
+<<<<<<< HEAD
 const NotificationsInitializer = () => {
   useEffect(() => {
     const initializePushNotifications = async () => {
@@ -120,6 +122,10 @@ const NotificationsInitializer = () => {
     initializePushNotifications();
   }, []);
   
+=======
+const FirebaseMessagingInitializer = () => {
+  useFirebaseMessaging();
+>>>>>>> 1906bcc9329792fe31c7a12b5bd5c2aa79efa88b
   return null;
 };
 
@@ -148,7 +154,11 @@ function App() {
         <ThemeProvider>
           <BrowserRouter>
             <WebSocketInitializer />
+<<<<<<< HEAD
             <NotificationsInitializer />
+=======
+            <FirebaseMessagingInitializer />
+>>>>>>> 1906bcc9329792fe31c7a12b5bd5c2aa79efa88b
             
             <Routes>
               <Route path="/" element={<Login />} />

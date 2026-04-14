@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { unregisterPushToken } from './api/pushNotifications';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -11,6 +12,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const CLIENT_APP_TYPE = "CLIENT";
+const FCM_TOKEN_STORAGE_KEY = "client_fcm_token";
 
 const ALLOWED_ROLES = ['client', 'CLIENT'];
 
@@ -181,6 +184,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     console.log('🚪 Logging out from client-bank');
+    const tokenToUnregister = localStorage.getItem(FCM_TOKEN_STORAGE_KEY);
+    if (token && tokenToUnregister) {
+      void unregisterPushToken(tokenToUnregister, CLIENT_APP_TYPE, token);
+      localStorage.removeItem(FCM_TOKEN_STORAGE_KEY);
+    }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userEmail');

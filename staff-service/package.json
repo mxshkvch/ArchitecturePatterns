@@ -13,6 +13,10 @@
     "@microsoft/signalr": "^10.0.0",
     "@tanstack/react-query": "^5.95.0",
     "@tanstack/react-query-devtools": "^5.95.0",
+<<<<<<< HEAD
+=======
+    "axios": "^1.13.5",
+>>>>>>> 1906bcc9329792fe31c7a12b5bd5c2aa79efa88b
     "firebase": "^12.12.0",
     "jwt-decode": "^4.0.0",
     "react": "^18.2.0",

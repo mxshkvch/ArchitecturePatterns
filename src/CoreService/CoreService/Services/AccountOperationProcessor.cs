@@ -5,6 +5,7 @@ using CoreService.Entities;
 using CoreService.Enums;
 using CoreService.Messaging;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace CoreService.Services;
 
@@ -20,6 +21,13 @@ public sealed class AccountOperationProcessor(
         }
 
         await using var transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        await AcquireOperationLocksAsync(message, cancellationToken);
+
+        if (await IsOperationAlreadyProcessedAsync(message.OperationId, cancellationToken))
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return;
+        }
 
         switch (message.OperationType)
         {
@@ -40,6 +48,38 @@ public sealed class AccountOperationProcessor(
         await transaction.CommitAsync(cancellationToken);
     }
 
+    private async Task AcquireOperationLocksAsync(AccountOperationMessage message, CancellationToken cancellationToken)
+    {
+        var lockKeys = new[] { message.AccountId, message.TargetAccountId }
+            .Where(accountId => accountId.HasValue)
+            .Select(accountId => AccountIdToLockKey(accountId!.Value))
+            .Distinct()
+            .OrderBy(x => x);
+
+        foreach (var lockKey in lockKeys)
+        {
+            await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock({lockKey})",
+                cancellationToken);
+        }
+    }
+
+    private async Task<bool> IsOperationAlreadyProcessedAsync(Guid operationId, CancellationToken cancellationToken)
+    {
+        if (operationId == Guid.Empty)
+        {
+            return false;
+        }
+
+        return await dbContext.Transactions.AnyAsync(t => t.OperationId == operationId, cancellationToken);
+    }
+
+    private static long AccountIdToLockKey(Guid accountId)
+    {
+        var bytes = accountId.ToByteArray();
+        return BitConverter.ToInt64(bytes, 0);
+    }
+
     private async Task ProcessDepositAsync(AccountOperationMessage message, CancellationToken cancellationToken)
     {
         var account = await dbContext.Accounts
@@ -51,6 +91,7 @@ public sealed class AccountOperationProcessor(
         dbContext.Transactions.Add(new Transaction
         {
             Id = Guid.NewGuid(),
+            OperationId = message.OperationId,
             AccountId = account.Id,
             Type = TransactionType.DEPOSIT,
             Amount = message.Amount,
@@ -76,6 +117,7 @@ public sealed class AccountOperationProcessor(
         dbContext.Transactions.Add(new Transaction
         {
             Id = Guid.NewGuid(),
+            OperationId = message.OperationId,
             AccountId = account.Id,
             Type = TransactionType.WITHDRAWAL,
             Amount = message.Amount,
@@ -124,6 +166,7 @@ public sealed class AccountOperationProcessor(
             new Transaction
             {
                 Id = Guid.NewGuid(),
+                OperationId = message.OperationId,
                 AccountId = fromAccount.Id,
                 Type = TransactionType.TRANSFER,
                 Amount = message.Amount,
@@ -134,6 +177,7 @@ public sealed class AccountOperationProcessor(
             new Transaction
             {
                 Id = Guid.NewGuid(),
+                OperationId = message.OperationId,
                 AccountId = toAccount.Id,
                 Type = TransactionType.TRANSFER,
                 Amount = creditAmount,

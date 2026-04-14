@@ -1,4 +1,4 @@
-import axios from "axios";
+import { safeRequest } from "./apiClient";
 
 const API_URL = "http://89.23.105.66:5107";
 
@@ -32,33 +32,29 @@ export interface DelinquenciesResponse {
   };
 }
 
-
-
 const getAuthHeaders = (): { Authorization: string } => {
   const token = localStorage.getItem("accessToken");
   if (!token) throw new Error("Access token is missing");
   return { Authorization: `Bearer ${token}` };
 };
 
-
-
 export const fetchMyCreditRating = async (): Promise<CreditRating> => {
-  const res = await axios.get<CreditRating>(`${API_URL}/credits/rating/my`, {
+  const res = await safeRequest({
+    method: "get",
+    url: `${API_URL}/credits/rating/my`,
     headers: getAuthHeaders(),
   });
+
   return res.data;
 };
 
-export const fetchDelinquencies = async (
-  page: number,
-  size: number
-): Promise<DelinquenciesResponse> => {
-  const res = await axios.get<DelinquenciesResponse>(
-    `${API_URL}/credits/delinquencies/my`,
-    {
-      params: { page, size },
-      headers: getAuthHeaders(),
-    }
-  );
+export const fetchDelinquencies = async (page: number, size: number): Promise<DelinquenciesResponse> => {
+  const res = await safeRequest({
+    method: "get",
+    url: `${API_URL}/credits/delinquencies/my`,
+    params: { page, size },
+    headers: getAuthHeaders(),
+  });
+
   return res.data;
 };

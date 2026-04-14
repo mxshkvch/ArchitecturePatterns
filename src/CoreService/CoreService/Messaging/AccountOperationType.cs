@@ -4,5 +4,6 @@ public enum AccountOperationType
 {
     DEPOSIT,
     WITHDRAW,
-    TRANSFER
+    TRANSFER,
+    PAYMENT
 }

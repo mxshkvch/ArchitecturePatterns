@@ -74,6 +74,23 @@ class AuthService {
   
   logout() {
     console.log('🚪 Logging out...');
+    const authToken = localStorage.getItem(this.tokenKey);
+    const pushToken = localStorage.getItem('staff_fcm_token');
+    if (authToken && pushToken) {
+      void fetch('http://89.23.105.66:5208/api/bff/push-tokens/unregister', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token: pushToken,
+          applicationType: 'EMPLOYEE',
+        }),
+      }).catch((error) => console.warn('Push token unregister failed', error));
+    }
+
+    localStorage.removeItem('staff_fcm_token');
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.roleKey);
     localStorage.removeItem(this.userKey);
