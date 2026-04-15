@@ -23,6 +23,11 @@ export const Header = () => {
     navigate(path);
   };
 
+  const handleOpenMetrics = () => {
+    // Открываем страницу с метриками в новом окне/вкладке
+    window.open('http://localhost:5177/metrics', '_blank');
+  };
+
   const isActive = (path) => {
     return location.pathname === path;
   };
@@ -102,6 +107,25 @@ export const Header = () => {
           }}
         >
           🏦 Мастер-счет
+        </button>
+
+        {/* Новая кнопка для метрик */}
+        <button
+          onClick={handleOpenMetrics}
+          style={{
+            ...styles.navButton,
+            ...styles.metricsButton,
+            backgroundColor: 'transparent',
+            color: 'var(--text-color)'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = 'var(--button-hover-bg)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = 'transparent';
+          }}
+        >
+          📊 Метрики
         </button>
 
         <div style={styles.userInfo}>
@@ -196,6 +220,10 @@ const styles = {
     color: 'white'
   },
   masterAccountButton: {
+  },
+  metricsButton: {
+    // Специальный стиль для кнопки метрик
+    border: '1px solid var(--primary-color)',
   },
   userInfo: {
     padding: '0 10px',
